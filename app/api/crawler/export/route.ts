@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
+import { CrawlerRepository } from "@/lib/repositories/crawler-repository";
+import type { ContactItem } from "@/lib/types/crawler";
+
+export const runtime = "nodejs";
+
+function contactValues(value: unknown) {
+  if (!Array.isArray(value)) return "";
+  return value.map((item: ContactItem) => item.value).filter(Boolean).join(", ");
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const repo = new CrawlerRepository();
+  const { rows } = await repo.listResults({
+    page: 1,
+    pageSize: 2000,
+    search: searchParams.get("search") ?? "",
+    cms: searchParams.get("cms") ?? "All CMS",
+  });
+
+  const sheet = XLSX.utils.json_to_sheet(
+    rows.map((row) => ({
+      URL: row.url,
+      Domain: row.domain,
+      Title: row.title ?? "",
+      CMS: row.cms_type,
+      Emails: contactValues(row.emails),
+      Phones: contactValues(row.phones),
+      Status: row.status,
+      Error: row.error ?? "",
+      "Crawl time": row.crawl_time,
+      "Created at": row.created_at,
+    })),
+  );
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, "crawl_results");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const body = new Uint8Array(buffer);
+
+  return new NextResponse(body, {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="crawl-results.xlsx"',
+    },
+  });
+}
