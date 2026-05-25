@@ -1,6 +1,20 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import type { CrawlJobRow, CrawlLogRow, CrawlResultRow, CrawledUrlResult } from "@/lib/types/crawler";
 
+function normalizeCrawlJob(row: Record<string, unknown>): CrawlJobRow {
+  const meta = (row.metadata ?? {}) as Record<string, unknown>;
+  return {
+    ...(row as CrawlJobRow),
+    name: (row.name as string | null) ?? (meta.name as string | null) ?? null,
+    max_urls: Number(row.max_urls ?? meta.max_urls ?? 500),
+    exclude_domains: Array.isArray(row.exclude_domains)
+      ? (row.exclude_domains as string[])
+      : Array.isArray(meta.exclude_domains)
+        ? (meta.exclude_domains as string[])
+        : [],
+  };
+}
+
 export type ListResultsParams = {
   search?: string;
   cms?: string;
@@ -11,15 +25,30 @@ export type ListResultsParams = {
 export class CrawlerRepository {
   private db = createSupabaseAdmin();
 
-  async createJob(dorks: string[], pagesPerDork: number): Promise<CrawlJobRow> {
+  async createJob(input: {
+    dorks: string[];
+    pagesPerDork: number;
+    name: string | null;
+    maxUrls: number;
+    excludeDomains: string[];
+  }): Promise<CrawlJobRow> {
     const { data, error } = await this.db
       .from("crawl_jobs")
-      .insert({ dorks, pages_per_dork: pagesPerDork, status: "queued" })
+      .insert({
+        dorks: input.dorks,
+        pages_per_dork: input.pagesPerDork,
+        status: "queued",
+        metadata: {
+          name: input.name,
+          max_urls: input.maxUrls,
+          exclude_domains: input.excludeDomains,
+        },
+      })
       .select("*")
       .single();
 
     if (error) throw error;
-    return data as CrawlJobRow;
+    return normalizeCrawlJob(data as Record<string, unknown>);
   }
 
   async updateJob(id: string, patch: Partial<CrawlJobRow>) {
@@ -33,7 +62,7 @@ export class CrawlerRepository {
   async getJob(id: string): Promise<CrawlJobRow | null> {
     const { data, error } = await this.db.from("crawl_jobs").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
-    return data as CrawlJobRow | null;
+    return data ? normalizeCrawlJob(data as Record<string, unknown>) : null;
   }
 
   async addLog(jobId: string, message: string, level: CrawlLogRow["level"] = "info", payload: Record<string, unknown> = {}) {

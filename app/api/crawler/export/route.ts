@@ -11,6 +11,7 @@ function contactValues(value: unknown) {
 }
 
 export async function GET(request: Request) {
+  try {
   const { searchParams } = new URL(request.url);
   const repo = new CrawlerRepository();
   const { rows } = await repo.listResults({
@@ -45,4 +46,8 @@ export async function GET(request: Request) {
       "Content-Disposition": 'attachment; filename="crawl-results.xlsx"',
     },
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -1,4 +1,5 @@
 import type { SerperResult } from "@/lib/types/crawler";
+import { isUrlExcluded } from "@/lib/utils/crawler-filters";
 
 const SERPER_ENDPOINT = "https://google.serper.dev/search";
 const BLOCKED_HOSTS = [
@@ -19,9 +20,10 @@ type SerperOrganicItem = {
   position?: number;
 };
 
-function isAllowedUrl(url: string) {
+function isAllowedUrl(url: string, excludeDomains: string[] = []) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "");
+    if (isUrlExcluded(url, excludeDomains)) return false;
     return !BLOCKED_HOSTS.some((blocked) => hostname === blocked || hostname.endsWith(`.${blocked}`));
   } catch {
     return false;
@@ -31,7 +33,7 @@ function isAllowedUrl(url: string) {
 export class SerperService {
   private apiKey = process.env.SERPER_API_KEY;
 
-  async searchDork(query: string, pages: number): Promise<SerperResult[]> {
+  async searchDork(query: string, pages: number, excludeDomains: string[] = []): Promise<SerperResult[]> {
     if (!this.apiKey) throw new Error("Missing SERPER_API_KEY.");
 
     const results: SerperResult[] = [];
@@ -55,7 +57,7 @@ export class SerperService {
 
       const payload = (await response.json()) as { organic?: SerperOrganicItem[] };
       for (const item of payload.organic ?? []) {
-        if (!item.link || !isAllowedUrl(item.link)) continue;
+        if (!item.link || !isAllowedUrl(item.link, excludeDomains)) continue;
         results.push({
           url: item.link,
           title: item.title,
@@ -69,10 +71,14 @@ export class SerperService {
     return results;
   }
 
-  async searchMany(dorks: string[], pagesPerDork: number): Promise<SerperResult[]> {
+  async searchMany(
+    dorks: string[],
+    pagesPerDork: number,
+    excludeDomains: string[] = [],
+  ): Promise<SerperResult[]> {
     const byUrl = new Map<string, SerperResult>();
     for (const dork of dorks) {
-      const results = await this.searchDork(dork, pagesPerDork);
+      const results = await this.searchDork(dork, pagesPerDork, excludeDomains);
       for (const result of results) byUrl.set(result.url, result);
     }
     return [...byUrl.values()];

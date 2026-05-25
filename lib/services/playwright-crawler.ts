@@ -1,12 +1,13 @@
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 import type { CmsType, ContactItem, CrawledUrlResult, SerperResult } from "@/lib/types/crawler";
+import {
+  dedupeEmails,
+  extractEmailsFromText,
+  isLikelyEmail,
+  normalizeEmail,
+} from "@/lib/utils/email-extract";
 
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+(?:\s?\[at\]\s?|\s?@\s?)[a-zA-Z0-9.-]+(?:\s?\[dot\]\s?|\s?\.\s?)[a-zA-Z]{2,}/g;
 const PHONE_RE = /(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}/g;
-
-function normalizeEmail(value: string) {
-  return value.replace(/\s*\[at\]\s*/gi, "@").replace(/\s*\[dot\]\s*/gi, ".").replace(/\s+/g, "");
-}
 
 function uniqueContacts(matches: string[] | null, source: ContactItem["source"], normalizer = (value: string) => value.trim()) {
   const seen = new Set<string>();
@@ -19,6 +20,30 @@ function uniqueContacts(matches: string[] | null, source: ContactItem["source"],
     })
     .slice(0, 20)
     .map((value) => ({ value, source }));
+}
+
+async function extractEmailsFromPage(page: Page): Promise<{ value: string; source: ContactItem["source"] }[]> {
+  const fromDom = await page.evaluate(() => {
+    const found: string[] = [];
+
+    for (const anchor of document.querySelectorAll('a[href^="mailto:"], a[href^="MAILTO:"]')) {
+      const href = anchor.getAttribute("href") ?? "";
+      const addr = href.replace(/^mailto:/i, "").split("?")[0].trim();
+      if (addr) found.push(addr);
+    }
+
+    for (const input of document.querySelectorAll('input[type="email"]')) {
+      const value = (input as HTMLInputElement).value?.trim();
+      if (value) found.push(value);
+    }
+
+    return found;
+  });
+
+  return fromDom
+    .map((value) => normalizeEmail(value))
+    .filter(isLikelyEmail)
+    .map((value) => ({ value, source: "html" as const }));
 }
 
 function detectCms(html: string): CmsType {
@@ -62,15 +87,23 @@ export class PlaywrightCrawlerService {
       const title = await page.title().catch(() => item.title ?? null);
       const html = await page.content();
       const text = await page.locator("body").innerText({ timeout: 5000 }).catch(() => "");
+
+      const domEmails = await extractEmailsFromPage(page);
+      const textEmails = extractEmailsFromText(text).map((value) => ({
+        value,
+        source: "text" as const,
+      }));
+
       await page.close();
 
-      const combined = `${html}\n${text}`;
+      const emails = dedupeEmails([...domEmails, ...textEmails]);
+
       return {
         url: item.url,
         domain,
         title: title || item.title || null,
         cms_type: detectCms(html),
-        emails: uniqueContacts(combined.match(EMAIL_RE), "html", normalizeEmail),
+        emails,
         phones: uniqueContacts(text.match(PHONE_RE), "text"),
         status: "success",
         error: null,

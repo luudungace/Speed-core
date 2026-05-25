@@ -40,8 +40,11 @@ export type CrawlJobRow = {
   created_at: string;
   updated_at: string;
   status: CrawlJobStatus;
+  name: string | null;
   dorks: string[];
   pages_per_dork: number;
+  max_urls: number;
+  exclude_domains: string[];
   total_urls: number;
   processed_urls: number;
   success_count: number;

@@ -1,21 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Download, Play, RefreshCw, Trash2 } from "lucide-react";
-import { startCrawlJobAction } from "@/app/crawler-url/actions";
+import { Download, Play, RefreshCw, Square, Trash2 } from "lucide-react";
+import { cancelCrawlJobAction, startCrawlJobAction } from "@/app/crawler-url/actions";
 import { Button, Input, Panel, Select, Textarea } from "@/components/ui";
 import type { ContactItem, CrawlJobRow, CrawlLogRow, CrawlResultRow } from "@/lib/types/crawler";
 
 const DEFAULT_DORKS = 'intitle:"forum" "register" "submit a thread"\nsite:*.org "powered by xenforo"';
+const DEFAULT_EXCLUDE = "wikipedia.org\nreddit.com\nquora.com";
 const CMS_OPTIONS = ["All CMS", "XenForo", "WordPress", "vBulletin", "phpBB", "Unknown"];
 
 function values(items: ContactItem[]) {
   return items.map((item) => item.value).join(", ") || "-";
 }
 
+function ContactLines({ items }: { items: ContactItem[] }) {
+  if (items.length === 0) return <>-</>;
+  return (
+    <div className="flex flex-col gap-0.5">
+      {items.map((item, index) => (
+        <span key={`${item.value}-${index}`} className="block leading-snug">
+          {item.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CrawlerUrlClient() {
+  const [jobName, setJobName] = useState("");
   const [dorks, setDorks] = useState(DEFAULT_DORKS);
   const [pagesPerDork, setPagesPerDork] = useState(2);
+  const [maxUrls, setMaxUrls] = useState(500);
+  const [excludeDomains, setExcludeDomains] = useState(DEFAULT_EXCLUDE);
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<CrawlJobRow | null>(null);
   const [logs, setLogs] = useState<CrawlLogRow[]>([]);
@@ -27,6 +44,9 @@ export function CrawlerUrlClient() {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isCancelling, startCancelTransition] = useTransition();
+
+  const isJobActive = job?.status === "running" || job?.status === "queued";
 
   const totalPages = Math.max(1, Math.ceil(count / 20));
   const progress = useMemo(() => {
@@ -71,16 +91,47 @@ export function CrawlerUrlClient() {
     return () => window.clearInterval(timer);
   }, [jobId, page, search, cms]);
 
+  function stopJob() {
+    if (!jobId) return;
+    setError(null);
+    startCancelTransition(async () => {
+      const result = await cancelCrawlJobAction(jobId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const response = await fetch(`/api/crawler/jobs/${jobId}`);
+      const data = (await response.json()) as { job: CrawlJobRow; logs: CrawlLogRow[] };
+      if (response.ok) {
+        setJob(data.job);
+        setLogs(data.logs);
+      }
+    });
+  }
+
   function startJob() {
     setError(null);
     startTransition(async () => {
-      const result = await startCrawlJobAction({ dorks, pagesPerDork });
+      const result = await startCrawlJobAction({
+        dorks,
+        pagesPerDork,
+        name: jobName,
+        maxUrls,
+        excludeDomains,
+      });
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setJobId(result.jobId);
-      setLogs([]);
+      const response = await fetch(`/api/crawler/jobs/${result.jobId}`);
+      const data = (await response.json()) as { job: CrawlJobRow; logs: CrawlLogRow[] };
+      if (response.ok) {
+        setJob(data.job);
+        setLogs(data.logs);
+      } else {
+        setLogs([]);
+      }
     });
   }
 
@@ -105,11 +156,30 @@ export function CrawlerUrlClient() {
     <>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_514px]">
         <Panel>
-          <h2 className="text-base font-semibold">Khởi chạy crawl job</h2>
-          <p className="mt-1 text-sm text-muted">Một dork mỗi dòng. Đã loại trừ các mạng xã hội phổ biến.</p>
-          <label className="mt-8 block text-sm font-semibold">Google Dorks (tối đa 10)</label>
-          <Textarea value={dorks} onChange={(event) => setDorks(event.target.value.split(/\r?\n/).slice(0, 10).join("\n"))} className="mt-2 h-36 w-full" />
-          <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-semibold">Tên job</label>
+              <Input
+                value={jobName}
+                onChange={(event) => setJobName(event.target.value)}
+                placeholder="VD: XenForo US — tuần 1"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Max URL</label>
+              <Input
+                type="number"
+                min={10}
+                max={2000}
+                value={maxUrls}
+                onChange={(event) =>
+                  setMaxUrls(Math.max(10, Math.min(2000, Number(event.target.value) || 500)))
+                }
+                className="w-full"
+              />
+              <p className="mt-1 text-xs text-muted">Giới hạn URL crawl sau khi tìm từ Serper (10–2000).</p>
+            </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Trang / dork</label>
               <Input
@@ -118,16 +188,60 @@ export function CrawlerUrlClient() {
                 max={10}
                 value={pagesPerDork}
                 onChange={(event) => setPagesPerDork(Math.max(1, Math.min(10, Number(event.target.value))))}
-                className="w-24"
+                className="w-full"
               />
             </div>
-            <Button onClick={startJob} disabled={isPending || job?.status === "running"} className="w-36">
+          </div>
+
+          <label className="mt-4 block text-sm font-semibold">Loại trừ domain</label>
+          <p className="mt-0.5 text-xs text-muted">Mỗi dòng một domain (tối đa 50). Khớp cả subdomain.</p>
+          <Textarea
+            value={excludeDomains}
+            onChange={(event) => setExcludeDomains(event.target.value)}
+            className="mt-2 h-24 w-full font-mono text-xs"
+            placeholder={"wikipedia.org\nreddit.com"}
+          />
+
+          <label className="mt-4 block text-sm font-semibold">Google Dorks (tối đa 10)</label>
+          <Textarea
+            value={dorks}
+            onChange={(event) => setDorks(event.target.value.split(/\r?\n/).slice(0, 10).join("\n"))}
+            className="mt-2 h-36 w-full"
+          />
+
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <Button onClick={startJob} disabled={isPending || isJobActive} className="min-w-40">
               {isPending ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
               Bắt đầu crawl
             </Button>
+            {jobId && (!job || isJobActive) && (
+              <Button
+                variant="danger"
+                onClick={stopJob}
+                disabled={isCancelling}
+                className="min-w-36"
+              >
+                {isCancelling ? <RefreshCw size={16} className="animate-spin" /> : <Square size={16} />}
+                Dừng crawl
+              </Button>
+            )}
             {job && (
               <div className="text-sm text-muted">
-                {job.status} · {job.processed_urls}/{job.total_urls} · {progress}%
+                {job.name ? <span className="font-medium text-white">{job.name}</span> : null}
+                {job.name ? " · " : null}
+                <span
+                  className={
+                    job.status === "running"
+                      ? "text-primary"
+                      : job.status === "cancelled"
+                        ? "text-amber-300"
+                        : undefined
+                  }
+                >
+                  {job.status}
+                </span>
+                {" · "}
+                {job.processed_urls}/{job.total_urls} · {progress}%
               </div>
             )}
           </div>
@@ -172,18 +286,18 @@ export function CrawlerUrlClient() {
           </div>
         </div>
 
-        <div className="mt-7 overflow-hidden rounded-md border border-border">
-          <table className="w-full min-w-[980px] border-collapse text-sm">
+        <div className="mt-7 w-full overflow-x-auto rounded-md border border-border">
+          <table className="w-max min-w-full border-collapse text-sm">
             <thead className="bg-[#101722] text-left text-muted">
               <tr>
-                <th className="w-10 px-3 py-3">
+                <th className="sticky left-0 z-10 w-10 bg-[#101722] px-3 py-3">
                   <input type="checkbox" checked={rows.length > 0 && selected.length === rows.length} onChange={(event) => setSelected(event.target.checked ? rows.map((row) => row.id) : [])} />
                 </th>
-                <th className="px-3 py-3">URL</th>
-                <th className="px-3 py-3">CMS</th>
-                <th className="px-3 py-3">Emails</th>
-                <th className="px-3 py-3">Phones</th>
-                <th className="px-3 py-3">Status</th>
+                <th className="min-w-[320px] whitespace-nowrap px-3 py-3">URL</th>
+                <th className="min-w-[100px] whitespace-nowrap px-3 py-3">CMS</th>
+                <th className="max-w-[250px] w-[250px] px-3 py-3">Emails</th>
+                <th className="max-w-[200px] w-[200px] px-3 py-3">Phones</th>
+                <th className="min-w-[90px] whitespace-nowrap px-3 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -194,21 +308,29 @@ export function CrawlerUrlClient() {
               ) : (
                 rows.map((row) => (
                   <tr key={row.id} className="border-t border-border">
-                    <td className="px-3 py-3">
+                    <td className="sticky left-0 z-10 bg-panel px-3 py-3">
                       <input
                         type="checkbox"
                         checked={selected.includes(row.id)}
                         onChange={(event) => setSelected((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))}
                       />
                     </td>
-                    <td className="max-w-[460px] px-3 py-3">
-                      <div className="truncate font-medium">{row.url}</div>
-                      <div className="truncate text-xs text-muted">{row.title ?? row.domain}</div>
+                    <td className="min-w-[320px] whitespace-nowrap px-3 py-3">
+                      <div className="font-medium">{row.url}</div>
+                      <div className="text-xs text-muted">{row.title ?? row.domain}</div>
                     </td>
-                    <td className="px-3 py-3">{row.cms_type}</td>
-                    <td className="max-w-[220px] truncate px-3 py-3 text-muted">{values(row.emails)}</td>
-                    <td className="max-w-[180px] truncate px-3 py-3 text-muted">{values(row.phones)}</td>
-                    <td className="px-3 py-3">
+                    <td className="whitespace-nowrap px-3 py-3">{row.cms_type}</td>
+                    <td className="px-3 py-3 align-top text-muted">
+                      <div className="max-w-[250px] break-words [overflow-wrap:anywhere]">
+                        {values(row.emails)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 align-top text-muted">
+                      <div className="max-w-[200px]">
+                        <ContactLines items={row.phones} />
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
                       <span className={row.status === "success" ? "text-primary" : "text-red-300"}>{row.status}</span>
                     </td>
                   </tr>
