@@ -10,7 +10,8 @@ export async function startCrawlJobAction(input: {
   name?: string;
   maxUrls?: number;
   excludeDomains?: string;
-}) {
+})
+ {
   const dorks = normalizeDorks(input.dorks);
   const pagesPerDork = Math.max(1, Math.min(10, Number(input.pagesPerDork) || 2));
   const maxUrls = Math.max(10, Math.min(2000, Number(input.maxUrls) || 500));
