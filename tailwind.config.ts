@@ -6,12 +6,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#080d15",
-        panel: "#111821",
-        panel2: "#0d141d",
-        border: "#243040",
-        muted: "#9fb3cb",
-        primary: "#00d17d"
+        background: "#050911",
+        panel: "#0b1220",
+        panel2: "#080d17",
+        border: "#1b283d",
+        muted: "#8c9fb8",
+        primary: "#1f8ecd",
+        "brand-navy": "#1a4894",
+        "brand-royal": "#1355a2",
+        "brand-sky": "#1f8ecd",
+        "brand-accent": "#117ec2"
       },
       fontFamily: {
         sans: ["Inter", "Arial", "sans-serif"],

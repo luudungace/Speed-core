@@ -1,4 +1,4 @@
-export type CmsType = "XenForo" | "WordPress" | "vBulletin" | "phpBB" | "Unknown";
+export type CmsType = "XenForo" | "WordPress" | "vBulletin" | "phpBB" | "Generic" | "Unknown";
 export type CrawlStatus = "success" | "failed";
 export type CrawlJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 

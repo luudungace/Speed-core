@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,8 +14,9 @@
 
 body {
   margin: 0;
-  background: #080d15;
+  background: #020408;
   color: #f8fbff;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 button,
@@ -24,7 +27,7 @@ select {
 }
 
 ::selection {
-  background: rgba(0, 209, 125, 0.28);
+  background: rgba(31, 142, 205, 0.28);
 }
 
 ::-webkit-scrollbar {
@@ -33,187 +36,359 @@ select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #243040;
+  background: #1b283d;
   border-radius: 999px;
 }
 
-/* Login page */
-@keyframes login-edge-flow {
-  to {
-    stroke-dashoffset: -200;
-  }
+/* ===== LOGIN PAGE — Complex 3D Cybernetic Design ===== */
+
+/* --- Logo: Frame is STATIC, only infinity image animates 3D --- */
+
+/* 3D animation for the infinity image ONLY */
+@keyframes login-infinity-3d {
+  0%, 100% { transform: translateY(0) rotateY(0deg) rotateX(0deg) scale(1); }
+  20% { transform: translateY(-4px) rotateY(8deg) rotateX(3deg) scale(1.02); }
+  40% { transform: translateY(-7px) rotateY(-5deg) rotateX(-2deg) scale(1); }
+  60% { transform: translateY(-3px) rotateY(6deg) rotateX(4deg) scale(1.01); }
+  80% { transform: translateY(-6px) rotateY(-8deg) rotateX(-3deg) scale(1); }
 }
 
-@keyframes login-node-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.6);
-    opacity: 0.55;
-  }
+.logo-infinity-3d {
+  animation: login-infinity-3d 10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  transform-style: preserve-3d;
 }
 
+/* Frame — static glow pulse only (no movement) */
+@keyframes login-frame-glow {
+  0%, 100% { box-shadow: 0 10px 35px -6px rgba(31,142,205,0.35), 0 0 50px rgba(0,240,255,0.06); }
+  50% { box-shadow: 0 12px 40px -6px rgba(31,142,205,0.45), 0 0 70px rgba(0,240,255,0.1); }
+}
+
+.logo-frame {
+  animation: login-frame-glow 5s ease-in-out infinite;
+  /* No translate/rotate — frame stays perfectly still */
+}
+
+/* Shine sweep on frame surface */
+@keyframes login-shine-sweep {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+.logo-shine-sweep {
+  animation: login-shine-sweep 6s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* Rotating orbital rings */
+@keyframes login-ring-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes login-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes login-outer-glow {
+  0%, 100% { opacity: 0.12; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.04); }
+}
+
+
+.logo-ring-rotate {
+  animation: login-ring-rotate 20s linear infinite;
+}
+
+.logo-ring-counter-rotate {
+  animation: login-ring-rotate 15s linear infinite reverse;
+}
+
+.logo-outer-glow {
+  background: radial-gradient(circle, rgba(0,240,255,.1) 0%, rgba(0,240,255,.03) 50%, transparent 70%);
+  animation: login-outer-glow 4s ease-in-out infinite;
+}
+
+.logo-orbit-1 {
+  animation: login-orbit 6s linear infinite;
+}
+
+.logo-orbit-2 {
+  animation: login-orbit 8s linear infinite reverse;
+}
+
+@keyframes login-shadow-pulse {
+  0%, 100% { opacity: 0.4; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.7; transform: translateX(-50%) scale(1.15); }
+}
+
+.logo-shadow-pulse {
+  animation: login-shadow-pulse 8s ease-in-out infinite;
+}
+
+/* --- Background Effects --- */
+@keyframes login-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -25px) scale(1.06); }
+  50% { transform: translate(-15px, 25px) scale(0.94); }
+  75% { transform: translate(-30px, -12px) scale(1.03); }
+}
+
+.login-orb-float {
+  animation: login-orb-float 20s ease-in-out infinite;
+}
+
+/* Floating tags */
 @keyframes login-floaty {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-12px);
-  }
-}
-
-@keyframes login-kicker-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.2);
-  }
-}
-
-@keyframes login-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.login-edge-flow {
-  animation: login-edge-flow 6s linear infinite;
-}
-
-.login-node-pulse {
-  transform-origin: center;
-  transform-box: fill-box;
-  animation: login-node-pulse 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(0, 209, 125, 0.8));
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
 }
 
 .login-float-tag {
   animation: login-floaty 8s ease-in-out infinite;
 }
 
-.login-kicker::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #00d17d;
-  box-shadow: 0 0 10px #00d17d;
-  animation: login-kicker-pulse 1.8s ease-in-out infinite;
+/* Scan lines */
+@keyframes login-scanline {
+  0% { top: -5%; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { top: 105%; opacity: 0; }
 }
 
-.login-live-dot::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #00d17d;
-  box-shadow: 0 0 8px #00d17d;
-  animation: login-kicker-pulse 1.6s ease-in-out infinite;
+.login-scanline {
+  animation: login-scanline 10s linear infinite;
 }
 
-.login-status-chip::before {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: #00d17d;
-  box-shadow: 0 0 6px #00d17d;
-  vertical-align: middle;
+.login-scanline-2 {
+  animation: login-scanline 14s linear infinite;
+  animation-delay: -5s;
 }
 
-.login-card::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: 20px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(0, 209, 125, 0.5), rgba(34, 211, 238, 0.2) 40%, transparent 70%);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+/* Beam effects */
+@keyframes login-beam-breathe {
+  0% { opacity: 0.65; }
+  50% { opacity: 1; }
+  100% { opacity: 0.65; }
+}
+
+.login-beam-breathe {
+  animation: login-beam-breathe 5s ease-in-out infinite;
+}
+
+/* Beam rising particles */
+@keyframes login-beam-rise-1 {
+  0% { bottom: 0; opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { bottom: 100%; opacity: 0; }
+}
+
+@keyframes login-beam-rise-2 {
+  0% { bottom: 5%; opacity: 0; }
+  15% { opacity: 0.8; }
+  75% { opacity: 0.8; }
+  100% { bottom: 95%; opacity: 0; }
+}
+
+.login-beam-particle-1 {
+  animation: login-beam-rise-1 4s linear infinite;
+}
+
+.login-beam-particle-2 {
+  animation: login-beam-rise-2 3s linear infinite;
+  animation-delay: -1.2s;
+}
+
+.login-beam-particle-3 {
+  animation: login-beam-rise-1 5s linear infinite;
+  animation-delay: -2.5s;
+}
+
+
+/* --- Hero Animations --- */
+@keyframes login-hero-fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-hero-fade-in {
+  opacity: 0;
+  animation: login-hero-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Gradient text for "backlink" */
+.login-gradient-text {
+  background: linear-gradient(135deg, #00F0FF 0%, #6366f1 50%, #00F0FF 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: login-gradient-shift 4s ease-in-out infinite alternate;
+}
+
+@keyframes login-gradient-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* --- Divider Glow --- */
+@keyframes login-divider-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+.login-divider-glow {
+  background: linear-gradient(to bottom, transparent, rgba(0,240,255,.15) 30%, rgba(0,240,255,.3) 50%, rgba(0,240,255,.15) 70%, transparent);
+  animation: login-divider-glow 4s ease-in-out infinite;
+}
+
+/* --- Form Animations --- */
+@keyframes login-form-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-form-fade-in {
+  opacity: 0;
+  animation: login-form-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes login-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .login-panel-in {
   animation: login-panel-in 0.4s ease;
 }
 
+/* --- Card 3D Effect --- */
+.login-card {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.login-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.95), 0 0 40px rgba(0, 240, 255, 0.04);
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(
+    160deg,
+    rgba(0, 240, 255, 0.3) 0%,
+    rgba(99, 102, 241, 0.15) 30%,
+    transparent 60%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+  transition: background 0.3s ease;
+}
+
+.login-card:hover::before {
+  background: linear-gradient(
+    160deg,
+    rgba(0, 240, 255, 0.45) 0%,
+    rgba(99, 102, 241, 0.25) 30%,
+    transparent 60%
+  );
+}
+
+.login-card-glow-layer {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    320px circle at var(--mouse-x, 0px) var(--mouse-y, 0px),
+    rgba(0, 240, 255, 0.07),
+    transparent 80%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 1;
+}
+
+.login-card:hover .login-card-glow-layer {
+  opacity: 1;
+}
+
+
+/* --- Input Styles --- */
 .login-input-icon {
   position: absolute;
-  left: 13px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9fb3cb;
-  transition: color 0.2s;
+  color: #566a85;
+  transition: color 0.3s, filter 0.3s;
   pointer-events: none;
 }
 
 .login-input {
   width: 100%;
-  padding: 12px 14px 12px 40px;
-  background: rgba(8, 13, 21, 0.7);
-  border: 1px solid #243040;
-  border-radius: 9px;
+  padding: 13px 14px 13px 42px;
+  background: rgba(5, 9, 17, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
   color: #f8fbff;
   font-size: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  font-weight: 500;
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
 }
 
 .login-input::placeholder {
-  color: #4a5773;
+  color: #3a4a60;
+  font-weight: 400;
 }
 
 .login-input:focus {
   outline: none;
-  border-color: #00d17d;
-  background: rgba(8, 13, 21, 0.9);
-  box-shadow: 0 0 0 4px rgba(0, 209, 125, 0.1);
+  border-color: rgba(0, 240, 255, 0.45);
+  background: rgba(5, 9, 17, 0.85);
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.08), 0 0 15px rgba(0, 240, 255, 0.05);
 }
 
 .group:focus-within .login-input-icon {
-  color: #00d17d;
+  color: #00F0FF;
+  filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.45));
 }
 
+/* --- Submit Button --- */
 .login-btn {
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 13px;
+  gap: 10px;
+  padding: 14px;
   border: none;
-  border-radius: 9px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: #04141a;
-  background: linear-gradient(135deg, #00d17d 0%, #22d3ee 100%);
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ffffff;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: transform 0.15s, box-shadow 0.25s;
+  transition: transform 0.2s, box-shadow 0.3s;
 }
 
 .login-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px -10px rgba(0, 209, 125, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px -15px rgba(31, 142, 205, 0.5), 0 0 60px rgba(0,240,255,.12);
 }
 
 .login-btn:active:not(:disabled) {
@@ -222,18 +397,303 @@ select {
 
 .login-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.65;
+  opacity: 0.5;
 }
 
 .login-btn::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  background: linear-gradient(120deg, transparent 25%, rgba(255, 255, 255, 0.2) 50%, transparent 75%);
   transform: translateX(-100%);
-  transition: transform 0.6s;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .login-btn:hover:not(:disabled)::after {
   transform: translateX(100%);
 }
+
+/* Premium Agex-inspired Glassmorphism and Nebula Glow */
+.nebula-glow-blue {
+  background: radial-gradient(circle at center, rgba(31, 142, 205, 0.35) 0%, rgba(26, 72, 148, 0.1) 45%, transparent 70%);
+}
+
+.nebula-glow-cyan {
+  background: radial-gradient(circle at center, rgba(31, 142, 205, 0.2) 0%, rgba(17, 126, 194, 0.05) 50%, transparent 70%);
+}
+
+.nebula-glow-violet {
+  background: radial-gradient(circle at center, rgba(147, 51, 234, 0.15) 0%, rgba(79, 70, 229, 0.05) 50%, transparent 70%);
+}
+
+.glass-card {
+  background: rgba(8, 12, 24, 0.55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-card-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(31, 142, 205, 0.5), rgba(0, 240, 255, 0.15) 35%, transparent 75%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Glass Pill and Buttons */
+.glass-pill {
+  background: rgba(31, 142, 205, 0.05);
+  border: 1px solid rgba(31, 142, 205, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.glass-input {
+  background: rgba(5, 8, 16, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  color: #ffffff;
+  transition: all 0.25s ease;
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(31, 142, 205, 0.5);
+  box-shadow: 0 0 15px rgba(31, 142, 205, 0.15);
+  background: rgba(5, 8, 16, 0.85);
+}
+
+/* Pulse glow indicator dots */
+@keyframes pulse-glow-cyan {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+    opacity: 0.8;
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.9);
+    opacity: 1;
+  }
+}
+
+.pulse-glow-cyan {
+  animation: pulse-glow-cyan 2s infinite ease-in-out;
+  background-color: #00F0FF;
+}
+
+@keyframes pulse-glow-blue {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(0, 85, 255, 0.5);
+    opacity: 0.8;
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 85, 255, 0.9);
+    opacity: 1;
+  }
+}
+
+.pulse-glow-blue {
+  animation: pulse-glow-blue 2s infinite ease-in-out;
+  background-color: #0055FF;
+}
+
+/* Staggered entrance animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+
+/* Text Shimmer Effect */
+@keyframes textShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.text-shimmer {
+  background: linear-gradient(
+    to right,
+    #ffffff 20%,
+    #00F0FF 40%,
+    #9333ea 60%,
+    #ffffff 80%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textShimmer 6s linear infinite;
+}
+
+/* Premium Interactive Mouse Glow Card */
+.interactive-glow-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(8, 12, 24, 0.45);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.interactive-glow-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 142, 205, 0.25);
+  box-shadow: 0 12px 40px rgba(31, 142, 205, 0.1);
+}
+
+.interactive-glow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    300px circle at var(--mouse-x, 0px) var(--mouse-y, 0px),
+    rgba(0, 240, 255, 0.08),
+    transparent 80%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 1;
+}
+
+.interactive-glow-card:hover::before {
+  opacity: 1;
+}
+
+.interactive-glow-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01) 40%, transparent 80%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+  transition: background 0.3s ease;
+}
+
+.interactive-glow-card:hover::after {
+  background: linear-gradient(135deg, rgba(31, 142, 205, 0.4), rgba(0, 240, 255, 0.15) 30%, transparent 70%);
+}
+
+/* Cybernetic Nexus Beam & Grid Floor - matching user image */
+.nexus-bg-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 450px;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.65;
+}
+
+.nexus-beam {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 240, 255, 0.02) 20%,
+    rgba(0, 240, 255, 0.15) 50%,
+    rgba(0, 240, 255, 0.4) 75%,
+    rgba(255, 255, 255, 0.95) 92%,
+    rgba(0, 240, 255, 0.9) 97%,
+    rgba(0, 240, 255, 1) 100%
+  );
+  filter: blur(12px);
+  box-shadow: 
+    0 0 50px rgba(0, 240, 255, 0.5),
+    0 0 120px rgba(0, 240, 255, 0.25);
+  animation: beam-pulse 5s ease-in-out infinite alternate;
+}
+
+.nexus-beam-core {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.8) 75%,
+    rgba(255, 255, 255, 1) 92%,
+    rgba(255, 255, 255, 1) 100%
+  );
+  filter: blur(2px);
+  box-shadow: 
+    0 0 25px #ffffff,
+    0 0 50px rgba(0, 240, 255, 0.8);
+}
+
+@keyframes beam-pulse {
+  0% {
+    opacity: 0.75;
+    width: 60px;
+    filter: blur(12px);
+  }
+  100% {
+    opacity: 1;
+    width: 85px;
+    filter: blur(16px);
+  }
+}
+
+.cyber-grid-floor {
+  position: absolute;
+  bottom: -40px;
+  left: 0;
+  width: 100%;
+  height: 300px;
+  background-image: 
+    linear-gradient(rgba(0, 240, 255, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.25) 1px, transparent 1px);
+  background-size: 35px 35px;
+  background-position: center bottom;
+  transform: perspective(200px) rotateX(80deg);
+  transform-origin: bottom center;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0) 100%);
+}
+
+
+

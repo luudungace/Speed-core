@@ -12,10 +12,10 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "default" && "bg-primary text-black hover:bg-emerald-400",
-        variant === "ghost" && "border border-border bg-[#0b111b] text-white hover:bg-[#111b29]",
-        variant === "danger" && "border border-red-900/70 bg-red-950/40 text-red-200 hover:bg-red-900/40",
+        "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]",
+        variant === "default" && "bg-brand-sky text-white hover:bg-brand-sky/85 shadow-md shadow-brand-sky/10 hover:shadow-brand-sky/20",
+        variant === "ghost" && "border border-border bg-[#0b1220] text-white hover:bg-brand-navy/10 hover:border-brand-sky/40",
+        variant === "danger" && "border border-red-900/70 bg-red-950/40 text-red-200 hover:bg-red-900/40 active:scale-95",
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "h-9 rounded-md border border-[#1f2b3a] bg-[#0d141d] px-3 text-sm text-white outline-none placeholder:text-muted focus:border-primary/70",
+        "h-9 rounded-lg border border-[#1b283d] bg-[#080d17] px-3 text-sm text-white outline-none placeholder:text-muted/60 transition-all duration-200 focus:border-brand-sky focus:ring-2 focus:ring-brand-sky/10",
         props.className,
       )}
     />
@@ -40,7 +40,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...props}
       className={cn(
-        "min-h-32 resize-y rounded-md border border-[#1f2b3a] bg-[#0d141d] px-3 py-3 font-mono text-sm text-white outline-none placeholder:text-muted focus:border-primary/70",
+        "min-h-32 resize-y rounded-lg border border-[#1b283d] bg-[#080d17] px-3 py-3 font-mono text-sm text-white outline-none placeholder:text-muted/60 transition-all duration-200 focus:border-brand-sky focus:ring-2 focus:ring-brand-sky/10",
         props.className,
       )}
     />
@@ -52,7 +52,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={cn(
-        "h-9 rounded-md border border-[#1f2b3a] bg-[#0d141d] px-3 text-sm text-white outline-none focus:border-primary/70",
+        "h-9 rounded-lg border border-[#1b283d] bg-[#080d17] px-3 text-sm text-white outline-none transition-all duration-200 focus:border-brand-sky focus:ring-2 focus:ring-brand-sky/10",
         props.className,
       )}
     />
