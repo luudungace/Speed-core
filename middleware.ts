@@ -6,9 +6,17 @@ export async function middleware(request: NextRequest) {
     request,
   });
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.warn("Supabase URL or Anon Key is missing. Bypassing auth middleware.");
+    return response;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
@@ -29,14 +37,29 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+    error,
+  } = await supabase.auth.getUser().catch((authError) => {
+    console.error("Unable to reach Supabase auth from middleware:", authError);
+    return {
+      data: { user: null },
+      error: authError,
+    };
+  });
 
   const { pathname } = request.nextUrl;
 
   const isPublicPath =
     pathname.startsWith("/login") || pathname.startsWith("/auth");
 
+  if (error && isPublicPath) {
+    return response;
+  }
+
   if (!user && !isPublicPath) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

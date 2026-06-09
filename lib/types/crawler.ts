@@ -1,6 +1,6 @@
 export type CmsType = "XenForo" | "WordPress" | "vBulletin" | "phpBB" | "Unknown";
 export type CrawlStatus = "success" | "failed";
-export type CrawlJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type CrawlJobStatus = "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
 export type SerperResult = {
   url: string;

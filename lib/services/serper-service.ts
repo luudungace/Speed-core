@@ -1,5 +1,5 @@
 import type { SerperResult } from "@/lib/types/crawler";
-import { isUrlExcluded } from "@/lib/utils/crawler-filters";
+import { isUrlExcluded, normalizeDomain } from "@/lib/utils/crawler-filters";
 
 const SERPER_ENDPOINT = "https://google.serper.dev/search";
 const BLOCKED_HOSTS = [
@@ -76,11 +76,14 @@ export class SerperService {
     pagesPerDork: number,
     excludeDomains: string[] = [],
   ): Promise<SerperResult[]> {
-    const byUrl = new Map<string, SerperResult>();
+    const byDomain = new Map<string, SerperResult>();
     for (const dork of dorks) {
       const results = await this.searchDork(dork, pagesPerDork, excludeDomains);
-      for (const result of results) byUrl.set(result.url, result);
+      for (const result of results) {
+        const domain = normalizeDomain(result.url);
+        if (!byDomain.has(domain)) byDomain.set(domain, result);
+      }
     }
-    return [...byUrl.values()];
+    return [...byDomain.values()];
   }
 }

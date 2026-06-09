@@ -27,13 +27,30 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-background text-white">
-      <aside className="fixed inset-y-0 left-0 z-20 w-[250px] border-r border-border bg-[#060b13]">
-        <div className="flex py-6 px-3 items-center">
+    <div 
+      className="min-h-screen bg-[#03060a] text-white relative overflow-x-hidden font-sans"
+      style={{
+        backgroundImage: "radial-gradient(circle at 80% 20%, rgba(0, 209, 125, 0.06) 0%, transparent 50%), radial-gradient(circle at 10% 80%, rgba(52, 211, 153, 0.04) 0%, transparent 50%)"
+      }}
+    >
+      {/* Background high-tech grid layer */}
+      <div 
+        className="absolute inset-0 z-0 opacity-[0.04] pointer-events-none mix-blend-overlay"
+        style={{
+          backgroundImage: "url('/images/bg-grid.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat"
+        }}
+      />
+
+      <aside className="fixed inset-y-0 left-0 z-20 w-[260px] border-r border-[rgba(0,209,125,0.15)] bg-[rgba(5,9,15,0.85)] backdrop-blur-xl shadow-[10px_0_30px_rgba(0,0,0,0.5)]">
+        <div className="flex py-6 px-5 items-center border-b border-[rgba(0,209,125,0.1)] bg-[rgba(0,209,125,0.02)]">
           <SpeedCoreLogo size="sm" subtitle="Internal SEO Tool" href="/" />
         </div>
-        <div className="px-2 pt-4">
-          <div className="mb-2 px-2 text-xs font-semibold text-muted">Vận hành</div>
+        
+        <div className="px-3 pt-6">
+          <div className="mb-3 px-3 text-[11px] font-bold tracking-wider text-primary/80 uppercase">Hệ thống</div>
           <nav className="space-y-1">
             {navItems.map((item) => {
               const active = pathname === item.href;
@@ -43,11 +60,19 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white transition",
-                    active ? "bg-[#162130]" : "hover:bg-[#101823]",
+                    "flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200 relative group",
+                    active 
+                      ? "bg-gradient-to-r from-[rgba(0,209,125,0.15)] to-[rgba(52,211,153,0.05)] text-white border-l-2 border-primary shadow-[0_0_15px_rgba(0,209,125,0.1)]" 
+                      : "text-muted hover:text-white hover:bg-[rgba(0,209,125,0.05)] hover:translate-x-[2px]"
                   )}
                 >
-                  <Icon size={17} className="text-slate-200" />
+                  <Icon 
+                    size={16} 
+                    className={cn(
+                      "transition-all duration-200", 
+                      active ? "text-primary filter drop-shadow-[0_0_5px_rgba(0,209,125,0.5)]" : "text-muted group-hover:text-white"
+                    )} 
+                  />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -56,24 +81,29 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
         </div>
 
         {/* Logout */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-border p-2">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-[rgba(0,209,125,0.1)] p-3 bg-[rgba(0,0,0,0.2)]">
           <form action={logoutAction}>
             <button
               type="submit"
-              className="flex w-full min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[#6b7a8d] transition hover:bg-[#101823] hover:text-white"
+              suppressHydrationWarning
+              className="flex w-full min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-muted transition-all duration-200 hover:bg-[rgba(0,209,125,0.1)] hover:text-white"
             >
-              <LogOut size={17} />
+              <LogOut size={16} className="text-muted" />
               <span>Đăng xuất</span>
             </button>
           </form>
         </div>
       </aside>
-      <main className="min-h-screen min-w-0 pl-[250px]">
-        <header className="flex h-10 items-center gap-3 border-b border-border bg-panel2 px-5 text-sm text-muted">
-          <Activity size={16} />
+
+      <main className="min-h-screen min-w-0 pl-[260px] relative z-10">
+        <header className="flex h-12 items-center gap-3 border-b border-[rgba(0,209,125,0.12)] bg-[rgba(5,9,14,0.7)] backdrop-blur-md px-6 text-xs text-muted/80 tracking-wide font-medium">
+          <Activity size={14} className="text-primary animate-pulse" />
+          <span>Speed Core Console</span>
+          <span className="text-[rgba(0,209,125,0.3)]">|</span>
           <span>{title}</span>
         </header>
-        <div className="min-w-0 px-6 py-7">{children}</div>
+        
+        <div className="min-w-0 px-8 py-8">{children}</div>
       </main>
     </div>
   );

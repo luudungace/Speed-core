@@ -6,15 +6,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#080d15",
-        panel: "#111821",
-        panel2: "#0d141d",
-        border: "#243040",
+        background: "#03060a",
+        panel: "rgba(8, 14, 23, 0.7)",
+        panel2: "rgba(5, 8, 12, 0.85)",
+        border: "rgba(0, 209, 125, 0.15)",
         muted: "#9fb3cb",
-        primary: "#00d17d"
+        primary: "#00d17d",
+        secondary: "#34d399",
       },
       fontFamily: {
-        sans: ["Inter", "Arial", "sans-serif"],
+        sans: ["Outfit", "Inter", "Arial", "sans-serif"],
         mono: ["JetBrains Mono", "Consolas", "monospace"]
       }
     },

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CrawlerRepository } from "@/lib/repositories/crawler-repository";
+import { normalizeExcludeDomains } from "@/lib/utils/crawler-filters";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,12 @@ export async function GET(request: Request) {
       pageSize: Number.isFinite(pageSize) ? pageSize : 20,
       search: searchParams.get("search") ?? "",
       cms: searchParams.get("cms") ?? "All CMS",
+      status: parseStatusFilter(searchParams.get("status")),
+      registerFilter: parseRegisterFilter(searchParams.get("registerFilter")),
+      urlDepth: searchParams.get("urlDepth") ?? "Tất cả URL",
+      jobId: searchParams.get("jobId") ?? undefined,
+      excludeDomains: normalizeExcludeDomains(searchParams.get("excludeDomains") ?? ""),
+      dedupeByDomain: searchParams.get("dedupeByDomain") !== "false",
     });
 
     return NextResponse.json(data);
@@ -22,6 +29,14 @@ export async function GET(request: Request) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ rows: [], count: 0, error: message }, { status: 500 });
   }
+}
+
+function parseRegisterFilter(value: string | null) {
+  return value === "with" || value === "without" ? value : "all";
+}
+
+function parseStatusFilter(value: string | null) {
+  return value === "success" || value === "other" ? value : undefined;
 }
 
 export async function DELETE(request: Request) {

@@ -17,10 +17,15 @@ export async function loginAction(
   const password = formData.get("password") as string;
   const supabase = await createSupabaseServer();
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth
+    .signInWithPassword({ email, password })
+    .catch((authError) => ({
+      data: { user: null, session: null },
+      error: authError,
+    }));
 
   if (error) {
-    return { error: error.message };
+    return { error: error.message || "Không thể kết nối Supabase. Vui lòng thử lại." };
   }
 
   redirect("/");
@@ -36,16 +41,21 @@ export async function signUpAction(
   const origin = headersList.get("origin");
   const supabase = await createSupabaseServer();
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
-  });
+  const { error } = await supabase.auth
+    .signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+      },
+    })
+    .catch((authError) => ({
+      data: { user: null, session: null },
+      error: authError,
+    }));
 
   if (error) {
-    return { error: error.message };
+    return { error: error.message || "Không thể kết nối Supabase. Vui lòng thử lại." };
   }
 
   return {

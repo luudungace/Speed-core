@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { CrawlerUrlClient } from "@/components/crawler/crawler-url-client";
+import CrawlerUrlClient from "@/components/crawler/crawler-url-client";
 
 export default function CrawlerUrlPage() {
   return (

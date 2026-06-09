@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { CrawlerRepository } from "@/lib/repositories/crawler-repository";
 import type { ContactItem } from "@/lib/types/crawler";
+import { getAuthLinks, getCrawlerRegisterLink } from "@/lib/utils/auth-links";
 
 export const runtime = "nodejs";
 
@@ -19,21 +20,35 @@ export async function GET(request: Request) {
     pageSize: 2000,
     search: searchParams.get("search") ?? "",
     cms: searchParams.get("cms") ?? "All CMS",
+    status: parseStatusFilter(searchParams.get("status")),
+    registerFilter: parseRegisterFilter(searchParams.get("registerFilter")),
+    urlDepth: searchParams.get("urlDepth") ?? "Tất cả URL",
+    jobId: searchParams.get("jobId") ?? undefined,
   });
 
   const sheet = XLSX.utils.json_to_sheet(
-    rows.map((row) => ({
-      URL: row.url,
-      Domain: row.domain,
-      Title: row.title ?? "",
-      CMS: row.cms_type,
-      Emails: contactValues(row.emails),
-      Phones: contactValues(row.phones),
-      Status: row.status,
-      Error: row.error ?? "",
-      "Crawl time": row.crawl_time,
-      "Created at": row.created_at,
-    })),
+    rows.map((row) => {
+      const links = getAuthLinks({
+        url: row.url,
+        domain: row.domain,
+        cmsType: row.cms_type,
+      });
+
+      return {
+        URL: row.url,
+        Domain: row.domain,
+        "Register link": getCrawlerRegisterLink({ url: row.url, domain: row.domain, cmsType: row.cms_type }),
+        "Login link": links.login,
+        Title: row.title ?? "",
+        CMS: row.cms_type,
+        Emails: contactValues(row.emails),
+        Phones: contactValues(row.phones),
+        Status: row.status,
+        Error: row.error ?? "",
+        "Crawl time": row.crawl_time,
+        "Created at": row.created_at,
+      };
+    }),
   );
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "crawl_results");
@@ -50,4 +65,12 @@ export async function GET(request: Request) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function parseRegisterFilter(value: string | null) {
+  return value === "with" || value === "without" ? value : "all";
+}
+
+function parseStatusFilter(value: string | null) {
+  return value === "success" || value === "other" ? value : undefined;
 }
