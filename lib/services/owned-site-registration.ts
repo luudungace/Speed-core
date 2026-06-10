@@ -74,12 +74,13 @@ async function lockEmailForJob(jobId: string) {
   const { data: email, error: selectError } = await db
     .from("email_pool")
     .select("id,email,password_value")
-    .eq("status", "available")
+    .in("status", ["available", "used"])
+    .order("last_used_at", { ascending: true, nullsFirst: true })
     .order("updated_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   if (selectError) throw selectError;
-  if (!email) throw stageError("email_pool", "empty", "Email Pool khong co email available.");
+  if (!email) throw stageError("email_pool", "empty", "Email Pool khong co email available hoac used de tai su dung.");
 
   const row = email as EmailPoolSecretRow;
   const { error: updateError } = await db
@@ -92,22 +93,23 @@ async function lockEmailForJob(jobId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", row.id)
-    .eq("status", "available");
+    .in("status", ["available", "used"]);
   if (updateError) throw updateError;
   return row;
 }
 
-async function releaseEmail(emailId: string, status: "available" | "used") {
+async function releaseEmail(emailId: string) {
   const db = createSupabaseAdmin();
+  const now = new Date().toISOString();
   const { error } = await db
     .from("email_pool")
     .update({
-      status,
+      status: "available",
       locked_by: null,
       locked_at: null,
       lock_expires_at: null,
-      last_used_at: status === "used" ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
+      last_used_at: now,
+      updated_at: now,
     })
     .eq("id", emailId);
   if (error) throw error;
@@ -118,7 +120,8 @@ async function lockUserForJob(jobId: string) {
   const { data: user, error: selectError } = await db
     .from("user_pool")
     .select("id,username")
-    .eq("status", "available")
+    .in("status", ["available", "used"])
+    .order("last_used_at", { ascending: true, nullsFirst: true })
     .order("updated_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -139,22 +142,23 @@ async function lockUserForJob(jobId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", row.id)
-    .eq("status", "available");
+    .in("status", ["available", "used"]);
   if (updateError) throw updateError;
   return row;
 }
 
-async function releaseUser(userId: string, status: "available" | "used") {
+async function releaseUser(userId: string) {
   const db = createSupabaseAdmin();
+  const now = new Date().toISOString();
   const { error } = await db
     .from("user_pool")
     .update({
-      status,
+      status: "available",
       locked_by: null,
       locked_at: null,
       lock_expires_at: null,
-      last_used_at: status === "used" ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
+      last_used_at: now,
+      updated_at: now,
     })
     .eq("id", userId);
   if (error) throw error;
@@ -315,8 +319,8 @@ export async function registerOwnedSiteAccount(input: {
       .single();
     if (error) throw stageError("account_save", "insert_failed", error.message);
 
-    await releaseEmail(email.id, "used");
-    if (pooledUser) await releaseUser(pooledUser.id, "used");
+    await releaseEmail(email.id);
+    if (pooledUser) await releaseUser(pooledUser.id);
     return {
       account: account as RegistrationAccountRow,
       finalUrl: page.url(),
@@ -325,8 +329,8 @@ export async function registerOwnedSiteAccount(input: {
         : "Da submit form dang ky va luu account vao danh sach.",
     };
   } catch (error) {
-    await releaseEmail(email.id, "available").catch(() => undefined);
-    if (pooledUser) await releaseUser(pooledUser.id, "available").catch(() => undefined);
+    await releaseEmail(email.id).catch(() => undefined);
+    if (pooledUser) await releaseUser(pooledUser.id).catch(() => undefined);
     throw error;
   } finally {
     await browser.close();

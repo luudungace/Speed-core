@@ -162,6 +162,9 @@ function mapError(message: string) {
   if (message.includes("owned_site_domains")) {
     return "Chua apply migration 006_owned_site_domains.sql.";
   }
+  if (message.includes("[email_pool/empty]")) {
+    return "Email Pool da ton tai nhung khong co email nao co the dung. Hay them email moi hoac kiem tra email khong bi locked/invalid/disabled.";
+  }
   if (message.includes("email_pool")) {
     return "Chua apply migration 005_resource_pools.sql hoac Email Pool khong co email available.";
   }

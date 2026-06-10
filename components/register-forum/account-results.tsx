@@ -46,7 +46,7 @@ export function AccountResultsTable({ accounts, error }: { accounts: Registratio
   }
 
   return (
-    <div className="mt-6 overflow-hidden rounded-md border border-border">
+    <div className="mt-6 overflow-visible rounded-md border border-border">
       <div className="flex items-center justify-between border-b border-border px-3 py-3">
         <div className="text-sm font-semibold text-muted">Ket qua account ({accounts.length})</div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -92,14 +92,32 @@ export function AccountResultsTable({ accounts, error }: { accounts: Registratio
               <option value="needs_verification">Verify</option>
               <option value="failed">Failed</option>
             </Select>
-            <span className={account.status === "failed" ? "truncate text-red-300" : "truncate text-muted"} title={account.notes ?? ""}>
-              {account.notes ?? "-"}
-            </span>
+            <NoteCell notes={account.notes} failed={account.status === "failed"} />
           </div>
         ))
       ) : (
         <div className="grid h-20 place-items-center px-3 text-sm text-muted">Chua co ket qua account.</div>
       )}
     </div>
+  );
+}
+
+function NoteCell({ notes, failed }: { notes: string | null; failed: boolean }) {
+  const text = notes?.trim() || "-";
+  const textClass = failed ? "text-red-300" : "text-muted";
+  const shouldShowTooltip = text !== "-";
+
+  return (
+    <span className="group relative min-w-0">
+      <span className={`block truncate ${textClass}`} title={text}>
+        {text}
+      </span>
+      {shouldShowTooltip ? (
+        <span className="pointer-events-none absolute bottom-full right-0 z-50 mb-2 hidden w-max max-w-[520px] rounded-md border border-primary/30 bg-[#071019] px-3 py-2 text-xs leading-5 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.45)] group-hover:block">
+          <span className="absolute -bottom-1 right-5 size-2 rotate-45 border-b border-r border-primary/30 bg-[#071019]" />
+          <span className="block whitespace-normal break-words">{text}</span>
+        </span>
+      ) : null}
+    </span>
   );
 }
