@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pause, Play, RefreshCw, SearchCheck, Square } from "lucide-react";
-import { syncRegistrationCandidatesAction } from "@/app/register-forum/actions";
+import { clearRegistrationAccountsAction, syncRegistrationCandidatesAction } from "@/app/register-forum/actions";
 import { Button } from "@/components/ui";
 
 const CRAWLER_VIEW_STATE_KEY = "crawler_url_view_state";
@@ -41,6 +41,11 @@ export function BulkAutoRegisterButton({ candidates }: { candidates: BulkCandida
     let success = 0;
     let failed = 0;
     try {
+      setMessage("Dang xoa ket qua account cu...");
+      const clearResult = await clearRegistrationAccountsAction();
+      if (!clearResult.ok) throw new Error(toMessage(clearResult.error, "Khong xoa duoc ket qua account cu."));
+      router.refresh();
+
       for (let index = 0; index < uniqueCandidates.length; index += 1) {
         await waitWhilePaused();
         if (cancelRef.current) break;

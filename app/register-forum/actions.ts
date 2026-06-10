@@ -41,6 +41,23 @@ export async function enqueueManualReviewAction(input: {
   }
 }
 
+export async function clearRegistrationAccountsAction() {
+  try {
+    const repo = new RegistrationRepository();
+    await repo.deleteAllAccounts();
+    revalidatePath("/register-forum");
+    return { ok: true };
+  } catch (error) {
+    const message = errorToMessage(error);
+    return {
+      ok: false,
+      error: message.includes("registration_accounts")
+        ? "Chua apply migration 004_registration_accounts.sql trong Supabase nen chua xoa duoc ket qua account cu."
+        : message,
+    };
+  }
+}
+
 export async function syncRegistrationCandidatesAction(input: CrawlerRegisterSyncInput = {}) {
   try {
     const crawlerRepo = new CrawlerRepository();
