@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { RegistrationRepository } from "@/lib/repositories/registration-repository";
 import { registerOwnedSiteAccount } from "@/lib/services/owned-site-registration";
+import { getAuthLinks } from "@/lib/utils/auth-links";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  let domain = "";
+  let registerUrl = "";
+  let cmsType = "Unknown";
   try {
     const body = (await request.json()) as {
       domain?: string;
@@ -11,8 +16,9 @@ export async function POST(request: Request) {
       cmsType?: string;
     };
 
-    const domain = body.domain?.trim();
-    const registerUrl = body.registerUrl?.trim();
+    domain = normalizeDomain(body.domain ?? "");
+    registerUrl = body.registerUrl?.trim() ?? "";
+    cmsType = body.cmsType?.trim() || "Unknown";
     if (!domain || !registerUrl) {
       return NextResponse.json({ ok: false, error: "Missing domain/registerUrl." }, { status: 400 });
     }
@@ -26,17 +32,64 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Register URL khong hop le." }, { status: 400 });
     }
 
+    const repo = new RegistrationRepository();
+    await repo.upsertOwnedDomain({
+      domain,
+      label: "Register Forum",
+      notes: `Auto-added from register URL: ${registerUrl}`,
+      enabled: true,
+    });
+
     const result = await registerOwnedSiteAccount({
       domain,
       registerUrl,
-      cmsType: body.cmsType,
+      cmsType,
     });
 
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ ok: false, error: mapError(message) }, { status: 500 });
+    const message = mapError(errorToMessage(error));
+    if (domain && registerUrl) {
+      await saveFailedAccount({ domain, registerUrl, cmsType, message }).catch(() => undefined);
+    }
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
+}
+
+async function saveFailedAccount(input: { domain: string; registerUrl: string; cmsType: string; message: string }) {
+  const repo = new RegistrationRepository();
+  const links = getAuthLinks({ url: input.registerUrl, domain: input.domain, cmsType: input.cmsType });
+  await repo.createAccount({
+    domain: input.domain,
+    registerUrl: input.registerUrl,
+    loginUrl: links.login,
+    accountEmail: "-",
+    username: null,
+    passwordValue: "-",
+    status: "failed",
+    notes: input.message,
+  });
+}
+
+function normalizeDomain(input: string) {
+  return input.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase();
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const parts = [record.message, record.details, record.hint, record.code]
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0);
+    if (parts.length > 0) return parts.join(" ");
+    try {
+      return JSON.stringify(record);
+    } catch {
+      return "Loi khong doc duoc noi dung.";
+    }
+  }
+  return String(error);
 }
 
 function mapError(message: string) {

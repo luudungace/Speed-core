@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, SearchCheck } from "lucide-react";
+import { Pause, Play, RefreshCw, SearchCheck, Square } from "lucide-react";
 import { syncRegistrationCandidatesAction } from "@/app/register-forum/actions";
 import { Button } from "@/components/ui";
 
@@ -16,59 +16,137 @@ type BulkCandidate = {
 
 export function BulkAutoRegisterButton({ candidates }: { candidates: BulkCandidate[] }) {
   const router = useRouter();
-  const [isRunning, setIsRunning] = useState(false);
+  const [state, setState] = useState<"idle" | "running" | "paused" | "cancelled">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const uniqueCount = useMemo(() => new Set(candidates.map((item) => normalizeUrlKey(item.registerUrl))).size, [candidates]);
+  const [progress, setProgress] = useState({ done: 0, total: 0, success: 0, failed: 0 });
+  const pauseRef = useRef(false);
+  const cancelRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const uniqueCandidates = useMemo(() => uniqueByRegisterUrl(candidates), [candidates]);
+  const uniqueCount = uniqueCandidates.length;
+
+  async function waitWhilePaused() {
+    while (pauseRef.current && !cancelRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+  }
 
   async function run() {
-    setIsRunning(true);
+    pauseRef.current = false;
+    cancelRef.current = false;
+    setState("running");
     setMessage(null);
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 2500);
+    setProgress({ done: 0, total: uniqueCandidates.length, success: 0, failed: 0 });
 
+    let success = 0;
+    let failed = 0;
     try {
-      const response = await fetch("/api/register-forum/auto-register-bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ candidates }),
-      });
-      const contentType = response.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        throw new Error("API bi redirect hoac chua dang nhap. Hay reload trang va dang nhap lai.");
+      for (let index = 0; index < uniqueCandidates.length; index += 1) {
+        await waitWhilePaused();
+        if (cancelRef.current) break;
+
+        const candidate = uniqueCandidates[index];
+        setMessage(`Dang xu ly ${index + 1}/${uniqueCandidates.length}: ${candidate.domain}`);
+        abortRef.current = new AbortController();
+        const result = await registerOne(candidate, abortRef.current.signal);
+        abortRef.current = null;
+
+        if (result.ok) success += 1;
+        else failed += 1;
+
+        setProgress({ done: index + 1, total: uniqueCandidates.length, success, failed });
+        router.refresh();
       }
-      const data = (await response.json()) as {
-        ok?: boolean;
-        total?: number;
-        success?: number;
-        failed?: number;
-        accountSaveFailed?: number;
-        accountSaveError?: string | null;
-        error?: string;
-      };
-      if (!response.ok || !data.ok) throw new Error(toMessage(data.error, "Dang ky tu dong that bai"));
-      const saveWarning = data.accountSaveFailed
-        ? ` Khong luu duoc ${data.accountSaveFailed} dong vao Ket qua account: ${data.accountSaveError ?? "loi khong xac dinh"}.`
-        : "";
-      setMessage(`Da xu ly ${data.total ?? 0} URL: thanh cong ${data.success ?? 0}, loi ${data.failed ?? 0}.${saveWarning}`);
+
+      if (cancelRef.current) {
+        setState("cancelled");
+        setMessage(`Da huy dang ky. Da xu ly ${success + failed}/${uniqueCandidates.length}: thanh cong ${success}, loi ${failed}.`);
+        return;
+      }
+
+      setState("idle");
+      setMessage(`Da xu ly ${uniqueCandidates.length} URL: thanh cong ${success}, loi ${failed}.`);
     } catch (error) {
-      setMessage(toMessage(error, "Dang ky tu dong that bai"));
+      if (cancelRef.current) {
+        setState("cancelled");
+        setMessage(`Da huy dang ky. Da xu ly ${success + failed}/${uniqueCandidates.length}: thanh cong ${success}, loi ${failed}.`);
+      } else {
+        setState("idle");
+        setMessage(toMessage(error, "Dang ky tu dong that bai"));
+      }
     } finally {
-      clearInterval(interval);
-      setIsRunning(false);
+      abortRef.current = null;
       router.refresh();
     }
   }
 
+  function pause() {
+    pauseRef.current = true;
+    setState("paused");
+    setMessage(`Da tam dung tai ${progress.done}/${progress.total} URL.`);
+  }
+
+  function resume() {
+    pauseRef.current = false;
+    setState("running");
+    setMessage(`Dang tiep tuc tu ${progress.done}/${progress.total} URL.`);
+  }
+
+  function cancel() {
+    cancelRef.current = true;
+    pauseRef.current = false;
+    abortRef.current?.abort();
+    setState("cancelled");
+    setMessage("Dang huy dang ky...");
+  }
+
   return (
     <div className="flex flex-col items-end gap-2">
-      <Button onClick={run} disabled={isRunning || candidates.length === 0}>
-        {isRunning ? <RefreshCw size={16} className="animate-spin" /> : <SearchCheck size={16} />}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={run} disabled={state === "running" || state === "paused" || uniqueCandidates.length === 0}>
+          {state === "running" ? <RefreshCw size={16} className="animate-spin" /> : <SearchCheck size={16} />}
         Dang ky tu dong ({uniqueCount} URL)
-      </Button>
+        </Button>
+        {state === "paused" ? (
+          <Button variant="ghost" onClick={resume}>
+            <Play size={16} />
+            Tiep tuc
+          </Button>
+        ) : (
+          <Button variant="ghost" onClick={pause} disabled={state !== "running"}>
+            <Pause size={16} />
+            Tam dung
+          </Button>
+        )}
+        <Button variant="danger" onClick={cancel} disabled={state !== "running" && state !== "paused"}>
+          <Square size={16} />
+          Huy dang ky
+        </Button>
+      </div>
+      {progress.total > 0 && state !== "idle" ? (
+        <p className="max-w-72 text-right font-mono text-[11px] leading-4 text-muted">
+          {progress.done}/{progress.total} · OK {progress.success} · Loi {progress.failed}
+        </p>
+      ) : null}
       {message ? <p className="max-w-72 text-right text-xs leading-5 text-muted">{message}</p> : null}
     </div>
   );
+}
+
+async function registerOne(candidate: BulkCandidate, signal: AbortSignal) {
+  const response = await fetch("/api/register-forum/auto-register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(candidate),
+    signal,
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("API bi redirect hoac chua dang nhap. Hay reload trang va dang nhap lai.");
+  }
+  const data = (await response.json()) as { ok?: boolean; error?: unknown; message?: string };
+  if (!response.ok || !data.ok) return { ok: false, message: toMessage(data.error, "Dang ky URL that bai") };
+  return { ok: true, message: data.message ?? "OK" };
 }
 
 function normalizeUrlKey(value: string) {
@@ -79,6 +157,16 @@ function normalizeUrlKey(value: string) {
   } catch {
     return value.trim().replace(/\/$/, "").toLowerCase();
   }
+}
+
+function uniqueByRegisterUrl(items: BulkCandidate[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalizeUrlKey(item.registerUrl);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function toMessage(value: unknown, fallback: string) {
