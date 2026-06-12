@@ -8,11 +8,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const repo = new CrawlerRepository();
     const page = Number(searchParams.get("page") ?? "1");
-    const pageSize = Number(searchParams.get("pageSize") ?? "20");
+    const pageSize = Number(searchParams.get("pageSize") ?? "10");
 
     const data = await repo.listResults({
       page: Number.isFinite(page) ? page : 1,
-      pageSize: Number.isFinite(pageSize) ? pageSize : 20,
+      pageSize: Number.isFinite(pageSize) ? pageSize : 10,
       search: searchParams.get("search") ?? "",
       cms: searchParams.get("cms") ?? "All CMS",
     });

@@ -2,16 +2,6 @@ import type { SerperResult } from "@/lib/types/crawler";
 import { isUrlExcluded } from "@/lib/utils/crawler-filters";
 
 const SERPER_ENDPOINT = "https://google.serper.dev/search";
-const BLOCKED_HOSTS = [
-  "facebook.com",
-  "instagram.com",
-  "twitter.com",
-  "x.com",
-  "youtube.com",
-  "linkedin.com",
-  "pinterest.com",
-  "tiktok.com",
-];
 
 type SerperOrganicItem = {
   title?: string;
@@ -22,9 +12,9 @@ type SerperOrganicItem = {
 
 function isAllowedUrl(url: string, excludeDomains: string[] = []) {
   try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "");
-    if (isUrlExcluded(url, excludeDomains)) return false;
-    return !BLOCKED_HOSTS.some((blocked) => hostname === blocked || hostname.endsWith(`.${blocked}`));
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    return !isUrlExcluded(url, excludeDomains);
   } catch {
     return false;
   }
