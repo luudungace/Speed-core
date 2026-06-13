@@ -7,8 +7,8 @@
     "username": "arun1959mol5732",
     "password": "Matkhaumanh123@",
     "note": "Account được thêm thủ công theo xác nhận của người dùng.",
-    "emailVerificationStatus": "Đã có email welcome từ BetaArchive",
-    "emailVerificationNote": "Welcome email xác nhận username arun1959mol5732.",
+    "emailVerificationStatus": "Không xác nhận được",
+    "emailVerificationNote": "A0001 NO [AUTHENTICATIONFAILED] Invalid credentials (Failure)",
     "emailVerifiedAt": "2026-06-02T03:58:57.000Z",
     "createdAt": "2026-06-12T01:56:48.245Z"
   }

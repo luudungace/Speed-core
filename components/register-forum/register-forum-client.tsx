@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, MailCheck, Play, Plus, Trash2, X } from "lucide-react";
+import { Check, Link2, MailCheck, Play, Plus, Trash2, X } from "lucide-react";
 import { Button, Panel } from "@/components/ui";
+import { buildCrawlerResultsQueryParams, loadCrawlerUrlViewState } from "@/lib/utils/crawler-url-view-state";
 
 const EMAIL_STORAGE_KEY = "speed-core.email-pool";
 const QUEUE_STORAGE_KEY = "speed-core.registration-queue";
@@ -84,6 +85,7 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
   const [verifyingAccountId, setVerifyingAccountId] = useState("");
   const [queueLoaded, setQueueLoaded] = useState(false);
   const [accounts, setAccounts] = useState<RegisteredAccount[]>([]);
+  const [isPullingCrawler, setIsPullingCrawler] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +171,51 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
     () => (queueLoaded ? candidates.filter((candidate) => !queuedUrls.has(candidate.url)) : []),
     [candidates, queueLoaded, queuedUrls],
   );
+
+  async function pullUrlsFromCrawlerRegister() {
+    setIsPullingCrawler(true);
+    try {
+      const viewState = loadCrawlerUrlViewState();
+      const params = buildCrawlerResultsQueryParams({ ...viewState, registerFilter: "has_register" });
+      const response = await fetch(`/api/crawler/register-sync?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        items?: Array<{
+          url: string;
+          title: string | null;
+          rating: string;
+          score: number;
+          siteType: string;
+        }>;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(payload.error ?? "Không lấy được URL từ Crawler.");
+
+      const nextItems = (payload.items ?? [])
+        .filter((item) => !queuedUrls.has(item.url))
+        .map((item) => ({
+          url: item.url,
+          title: item.title,
+          rating: item.rating,
+          score: item.score,
+          siteType: item.siteType,
+          email: null,
+          username: "",
+          status: "Không xác định" as const,
+        }));
+
+      if (nextItems.length === 0) {
+        setMessage("Không có URL Register mới phù hợp bộ lọc Crawler URL hiện tại.");
+        return;
+      }
+
+      setQueue((current) => mergeQueueItems(nextItems, current));
+      setMessage(`Đã lấy ${nextItems.length} URL từ cột Register (theo bộ lọc depth/search/job trên Crawler URL).`);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Không lấy được URL từ Crawler.");
+    } finally {
+      setIsPullingCrawler(false);
+    }
+  }
 
   function enqueueCandidates() {
     if (availableCandidates.length === 0) {
@@ -330,10 +377,16 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
             <h2 className="text-base font-semibold">Ứng viên đăng ký</h2>
             <p className="text-sm text-muted">Website có đánh giá Xem xét, dùng để chạy thử đăng ký.</p>
           </div>
-          <Button type="button" disabled={!queueLoaded || availableCandidates.length === 0} onClick={enqueueCandidates}>
-            <Plus size={16} />
-            Enqueue ({availableCandidates.length})
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" disabled={!queueLoaded || isPullingCrawler} onClick={() => void pullUrlsFromCrawlerRegister()}>
+              <Link2 size={16} />
+              {isPullingCrawler ? "Đang lấy..." : "Lấy URL từ cột Register"}
+            </Button>
+            <Button type="button" disabled={!queueLoaded || availableCandidates.length === 0} onClick={enqueueCandidates}>
+              <Plus size={16} />
+              Enqueue ({availableCandidates.length})
+            </Button>
+          </div>
         </div>
         {!queueLoaded ? <p className="mt-3 text-sm text-muted">Đang tải Job queue đã lưu...</p> : null}
         {message ? <p className="mt-3 text-sm text-primary">{message}</p> : null}

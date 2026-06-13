@@ -1,6 +1,9 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import type { CrawlJobRow, CrawlLogRow, CrawlResultRow, CrawledUrlResult } from "@/lib/types/crawler";
+import type { CrawlerRegisterFilter } from "@/lib/utils/crawler-url-view-state";
+import { hasCrawlerRegisterLink } from "@/lib/utils/crawler-register-link";
 import { getBacklinkCandidateFromRaw } from "@/lib/utils/backlink-candidate";
+import { matchesUrlDepth, type UrlDepthFilter } from "@/lib/utils/forum-url-filter";
 
 function normalizeCrawlJob(row: Record<string, unknown>): CrawlJobRow {
   const meta = (row.metadata ?? {}) as Record<string, unknown>;
@@ -24,7 +27,30 @@ export type ListResultsParams = {
   cms?: string;
   page?: number;
   pageSize?: number;
+  urlDepth?: UrlDepthFilter;
+  jobId?: string | null;
+  registerFilter?: CrawlerRegisterFilter;
 };
+
+const FILTER_BATCH_MAX = 2000;
+
+function needsInMemoryFilter(params: ListResultsParams) {
+  const urlDepth = params.urlDepth ?? "all";
+  const registerFilter = params.registerFilter ?? "all";
+  return urlDepth !== "all" || registerFilter !== "all";
+}
+
+function applyRowFilters(rows: CrawlResultRow[], params: ListResultsParams) {
+  const urlDepth = params.urlDepth ?? "all";
+  const registerFilter = params.registerFilter ?? "all";
+
+  return rows.filter((row) => {
+    if (!matchesUrlDepth(row.url, urlDepth)) return false;
+    if (registerFilter === "has_register" && !hasCrawlerRegisterLink(row)) return false;
+    if (registerFilter === "no_register" && hasCrawlerRegisterLink(row)) return false;
+    return true;
+  });
+}
 
 function chunkUrlsForLookup(urls: string[]) {
   const chunks: string[][] = [];
@@ -143,22 +169,39 @@ export class CrawlerRepository {
     return existing;
   }
 
-  async listResults({
-    search = "",
-    cms = "All CMS",
-    page = 1,
-    pageSize = 20,
-  }: ListResultsParams) {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    let query = this.db.from("crawl_results").select("*", { count: "exact" });
+  private buildResultsQuery(params: ListResultsParams, withCount: boolean) {
+    let query = this.db.from("crawl_results").select("*", withCount ? { count: "exact" } : undefined);
 
-    if (cms && cms !== "All CMS") query = query.eq("cms_type", cms);
-    if (search.trim()) {
-      const term = `%${search.trim()}%`;
+    if (params.cms && params.cms !== "All CMS") query = query.eq("cms_type", params.cms);
+    if (params.jobId) query = query.eq("job_id", params.jobId);
+    if (params.search?.trim()) {
+      const term = `%${params.search.trim()}%`;
       query = query.or(`url.ilike.${term},domain.ilike.${term},title.ilike.${term}`);
     }
 
+    // Manual-review rows live in the dedicated manual-review table; exclude them here so each page fills PAGE_SIZE.
+    query = query.or("error.is.null,error.not.ilike.NEEDS_MANUAL_REVIEW:%");
+    return query;
+  }
+
+  async listResults(params: ListResultsParams) {
+    const search = params.search ?? "";
+    const cms = params.cms ?? "All CMS";
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 20;
+
+    if (needsInMemoryFilter(params)) {
+      const query = this.buildResultsQuery({ ...params, search, cms }, false);
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(FILTER_BATCH_MAX);
+      if (error) throw error;
+      const filtered = applyRowFilters((data ?? []) as CrawlResultRow[], params);
+      const from = (page - 1) * pageSize;
+      return { rows: filtered.slice(from, from + pageSize), count: filtered.length };
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const query = this.buildResultsQuery({ ...params, search, cms }, true);
     const { data, error, count } = await query.order("created_at", { ascending: false }).range(from, to);
     if (error) throw error;
     return { rows: (data ?? []) as CrawlResultRow[], count: count ?? 0 };

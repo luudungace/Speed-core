@@ -3,6 +3,13 @@ import * as XLSX from "xlsx";
 import { CrawlerRepository } from "@/lib/repositories/crawler-repository";
 import type { ContactItem } from "@/lib/types/crawler";
 import { getBacklinkCandidateFromRaw, type CandidateLink } from "@/lib/utils/backlink-candidate";
+import type { CrawlerRegisterFilter } from "@/lib/utils/crawler-url-view-state";
+import { parseUrlDepthFilter } from "@/lib/utils/forum-url-filter";
+
+function parseRegisterFilter(value: string | null): CrawlerRegisterFilter {
+  if (value === "has_register" || value === "no_register") return value;
+  return "all";
+}
 
 export const runtime = "nodejs";
 
@@ -24,6 +31,9 @@ export async function GET(request: Request) {
     pageSize: 2000,
     search: searchParams.get("search") ?? "",
     cms: searchParams.get("cms") ?? "All CMS",
+    urlDepth: parseUrlDepthFilter(searchParams.get("urlDepth")),
+    jobId: searchParams.get("jobId"),
+    registerFilter: parseRegisterFilter(searchParams.get("registerFilter")),
   });
 
   const sheet = XLSX.utils.json_to_sheet(
