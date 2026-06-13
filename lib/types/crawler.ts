@@ -45,6 +45,9 @@ export type CrawlJobRow = {
   pages_per_dork: number;
   max_urls: number;
   exclude_domains: string[];
+  backlink_targets: string[];
+  backlink_source_limit: number;
+  direct_urls: string[];
   total_urls: number;
   processed_urls: number;
   success_count: number;

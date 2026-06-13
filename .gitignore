@@ -29,6 +29,10 @@ dev-server.err.log
 .env
 .env*.local
 
+# local OAuth credentials
+.data/gmail-oauth-config.json
+.data/gmail-oauth-tokens.json
+
 # vercel
 .vercel
 

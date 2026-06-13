@@ -6,6 +6,9 @@ import {
   isLikelyEmail,
   normalizeEmail,
 } from "@/lib/utils/email-extract";
+import { detectBacklinkCandidate, type BacklinkCandidate, type PageLink } from "@/lib/utils/backlink-candidate";
+import { detectManualReviewReason, formatManualReviewError } from "@/lib/utils/manual-review";
+import { detectRegistrationOpportunity, formatRegistrationStatus } from "@/lib/utils/registration-opportunity";
 
 const PHONE_RE = /(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}/g;
 
@@ -44,6 +47,28 @@ async function extractEmailsFromPage(page: Page): Promise<{ value: string; sourc
     .map((value) => normalizeEmail(value))
     .filter(isLikelyEmail)
     .map((value) => ({ value, source: "html" as const }));
+}
+
+async function extractPageLinks(page: Page): Promise<PageLink[]> {
+  return page.evaluate(() =>
+    Array.from(document.querySelectorAll("a[href]"))
+      .map((anchor) => {
+        const element = anchor as HTMLAnchorElement;
+        return {
+          href: element.href,
+          text: element.innerText || element.getAttribute("aria-label") || element.getAttribute("title") || "",
+        };
+      })
+      .filter((link) => /^https?:\/\//i.test(link.href))
+      .slice(0, 250),
+  );
+}
+
+function rawWithCandidate(raw: Record<string, unknown>, candidate: BacklinkCandidate) {
+  return {
+    ...raw,
+    backlink_candidate: candidate,
+  };
 }
 
 function detectCms(html: string): CmsType {
@@ -87,6 +112,27 @@ export class PlaywrightCrawlerService {
       const title = await page.title().catch(() => item.title ?? null);
       const html = await page.content();
       const text = await page.locator("body").innerText({ timeout: 5000 }).catch(() => "");
+      const links = await extractPageLinks(page).catch(() => []);
+
+      const manualReviewReason = detectManualReviewReason({ title, html, text });
+      const cmsType = detectCms(html);
+      const candidate = detectBacklinkCandidate({ url: item.url, html, text, cmsType, links });
+      if (manualReviewReason) {
+        await page.close();
+        return {
+          url: item.url,
+          domain,
+          title: title || item.title || null,
+          cms_type: cmsType,
+          emails: [],
+          phones: [],
+          status: "failed",
+          error: formatManualReviewError(manualReviewReason),
+          crawl_time: Number(((performance.now() - started) / 1000).toFixed(3)),
+          html_snippet: html.slice(0, 12000),
+          raw_serper_data: rawWithCandidate(item.raw, candidate),
+        };
+      }
 
       const domEmails = await extractEmailsFromPage(page);
       const textEmails = extractEmailsFromText(text).map((value) => ({
@@ -97,21 +143,30 @@ export class PlaywrightCrawlerService {
       await page.close();
 
       const emails = dedupeEmails([...domEmails, ...textEmails]);
+      const hasRegistration = detectRegistrationOpportunity({ url: item.url, html, text });
 
       return {
         url: item.url,
         domain,
         title: title || item.title || null,
-        cms_type: detectCms(html),
+        cms_type: cmsType,
         emails,
         phones: uniqueContacts(text.match(PHONE_RE), "text"),
         status: "success",
-        error: null,
+        error: formatRegistrationStatus(hasRegistration),
         crawl_time: Number(((performance.now() - started) / 1000).toFixed(3)),
         html_snippet: html.slice(0, 12000),
-        raw_serper_data: item.raw,
+        raw_serper_data: rawWithCandidate(item.raw, candidate),
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown crawl error";
+      const manualReviewReason = detectManualReviewReason({ title: item.title, error: errorMessage });
+      const candidate = detectBacklinkCandidate({
+        url: item.url,
+        text: [item.title, item.snippet, JSON.stringify(item.raw)].filter(Boolean).join("\n"),
+        cmsType: "Unknown",
+      });
+
       return {
         url: item.url,
         domain,
@@ -120,10 +175,10 @@ export class PlaywrightCrawlerService {
         emails: [],
         phones: [],
         status: "failed",
-        error: error instanceof Error ? error.message : "Unknown crawl error",
+        error: manualReviewReason ? formatManualReviewError(manualReviewReason) : errorMessage,
         crawl_time: Number(((performance.now() - started) / 1000).toFixed(3)),
         html_snippet: null,
-        raw_serper_data: item.raw,
+        raw_serper_data: rawWithCandidate(item.raw, candidate),
       };
     }
   }
