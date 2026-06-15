@@ -14,7 +14,6 @@ import {
   Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { logoutAction } from "@/app/login/logout-action";
 import { SpeedCoreLogo } from "@/components/speed-core-logo";
 
 const navItems = [
@@ -61,15 +60,13 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 
         {/* Logout */}
         <div className="absolute bottom-0 left-0 right-0 border-t border-border p-2">
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="flex w-full min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[#6b7a8d] transition hover:bg-[#101823] hover:text-white"
-            >
-              <LogOut size={17} />
-              <span>Đăng xuất</span>
-            </button>
-          </form>
+          <Link
+            href="/auth/signout"
+            className="flex w-full min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[#6b7a8d] transition hover:bg-[#101823] hover:text-white"
+          >
+            <LogOut size={17} />
+            <span>Đăng xuất</span>
+          </Link>
         </div>
       </aside>
       <main className="min-h-screen min-w-0 pl-[250px]">

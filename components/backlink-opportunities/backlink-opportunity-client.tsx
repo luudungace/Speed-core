@@ -771,15 +771,14 @@ export function BacklinkOpportunityClient() {
                     <th className="p-3 w-28 text-center">Số đối thủ</th>
                     <th className="p-3 w-24">CMS</th>
                     <th className="p-3 w-24">Loại web</th>
-                    <th className="p-3 w-36 text-center">Liên kết chức năng</th>
                     <th className="p-3">Email liên hệ</th>
-                    <th className="p-3 w-20 text-center">Crawl</th>
+                    <th className="p-3 w-36 text-center">Liên kết chức năng</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#121c2a] text-slate-300">
                   {opportunities.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-500 italic">
+                      <td colSpan={8} className="p-8 text-center text-slate-500 italic">
                         Không tìm thấy cơ hội đi backlink nào phù hợp với bộ lọc.
                       </td>
                     </tr>
@@ -800,7 +799,7 @@ export function BacklinkOpportunityClient() {
                               className="rounded border-[#1f2b3a] bg-[#0d141d]"
                             />
                           </td>
-                          <td className="p-3 max-w-[280px]">
+                          <td className="p-3 max-w-[100px]">
                             <div className="flex flex-col gap-0.5">
                               <span className="font-semibold text-slate-200 truncate" title={row.title || row.source_url}>
                                 {row.title || row.source_domain}
@@ -842,6 +841,11 @@ export function BacklinkOpportunityClient() {
                             <span className="text-[11px] font-medium text-slate-200">{row.site_type}</span>
                           </td>
                           <td className="p-3">
+                            <span className="text-slate-200 break-all" title={emailsStr}>
+                              {emailsStr || <span className="text-slate-500 italic">Không có</span>}
+                            </span>
+                          </td>
+                          <td className="p-3">
                             <div className="flex justify-center gap-2">
                               <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold
                                 ${hasRegUrl ? "bg-emerald-950/40 border border-emerald-900/60 text-emerald-300" : "bg-slate-900/30 text-slate-500 border border-slate-800/40"}
@@ -859,20 +863,6 @@ export function BacklinkOpportunityClient() {
                                 Profile
                               </span>
                             </div>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-slate-200 break-all" title={emailsStr}>
-                              {emailsStr || <span className="text-slate-500 italic">Không có</span>}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize
-                              ${row.crawl_status === "success" && "bg-emerald-950/30 text-emerald-400"}
-                              ${row.crawl_status === "failed" && "bg-red-950/30 text-red-400"}
-                              ${row.crawl_status === "pending" && "bg-slate-950/30 text-slate-400"}
-                            `}>
-                              {row.crawl_status}
-                            </span>
                           </td>
                         </tr>
                       );

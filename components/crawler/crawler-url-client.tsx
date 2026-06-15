@@ -385,7 +385,7 @@ export function CrawlerUrlClient() {
         <Panel>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-semibold">Tên job</label>
+              <label className="mb-1 block text-sm font-semibold">Tên dự án</label>
               <Input
                 value={jobName}
                 onChange={(event) => setJobName(event.target.value)}
