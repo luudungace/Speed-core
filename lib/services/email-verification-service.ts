@@ -1,4 +1,5 @@
-﻿import tls from "node:tls";
+import imapSimple from "imap-simple";
+import { simpleParser } from "mailparser";
 import { chromium } from "playwright";
 import { findGmailApiVerificationLink } from "@/lib/services/gmail-api-service";
 import { readRegisteredAccounts, updateRegisteredAccountEmailVerification } from "@/lib/services/registration-queue-store";
@@ -11,8 +12,8 @@ type ImapCredentials = {
   port: number;
 };
 
-const VERIFIED_STATUS = "\u0110\u00e3 x\u00e1c nh\u1eadn email";
-const FAILED_STATUS = "Kh\u00f4ng x\u00e1c nh\u1eadn \u0111\u01b0\u1ee3c";
+const VERIFIED_STATUS = "Đã xác nhận email";
+const FAILED_STATUS = "Không xác nhận được";
 
 type VerificationResult = {
   status: typeof VERIFIED_STATUS | typeof FAILED_STATUS;
@@ -22,137 +23,125 @@ type VerificationResult = {
 
 const VERIFY_PROFILE_DIR = ".playwright-email-verify-profile";
 
-function quoteImap(value: string) {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-function waitFor(socket: tls.TLSSocket, tag: string, timeoutMs = 20000) {
-  return new Promise<string>((resolve, reject) => {
-    let buffer = "";
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error(`IMAP timeout while waiting for ${tag}.`));
-    }, timeoutMs);
-
-    function cleanup() {
-      clearTimeout(timeout);
-      socket.off("data", onData);
-      socket.off("error", onError);
-    }
-
-    function onError(error: Error) {
-      cleanup();
-      reject(error);
-    }
-
-    function onData(chunk: Buffer) {
-      buffer += chunk.toString("binary");
-      if (new RegExp(`(^|\\r?\\n)${tag} (OK|NO|BAD)`, "i").test(buffer)) {
-        cleanup();
-        resolve(buffer);
-      }
-    }
-
-    socket.on("data", onData);
-    socket.on("error", onError);
-  });
-}
-
-async function sendCommand(socket: tls.TLSSocket, counter: { value: number }, command: string, timeoutMs?: number) {
-  counter.value += 1;
-  const tag = `A${String(counter.value).padStart(4, "0")}`;
-  const pending = waitFor(socket, tag, timeoutMs);
-  socket.write(`${tag} ${command}\r\n`);
-  const response = await pending;
-  if (!new RegExp(`(^|\\r?\\n)${tag} OK`, "i").test(response)) {
-    const line = response.split(/\r?\n/).find((row) => row.startsWith(tag)) ?? response.slice(-300);
-    throw new Error(line.trim());
-  }
-  return response;
-}
-
-function formatImapDate(date: Date) {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`;
-}
-
-function parseSearchUids(response: string) {
-  const line = response.split(/\r?\n/).find((row) => /^\* SEARCH/i.test(row)) ?? "";
-  return line
-    .replace(/^\* SEARCH\s*/i, "")
-    .trim()
-    .split(/\s+/)
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value) && value > 0);
-}
-
-function decodeQuotedPrintable(value: string) {
-  return value
-    .replace(/=\r?\n/g, "")
-    .replace(/=([0-9a-f]{2})/gi, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)));
-}
-
-function decodeEmailBody(raw: string) {
-  const normalized = raw.replace(/\r\n/g, "\n");
-  const parts = [normalized, decodeQuotedPrintable(normalized)];
-  const base64Matches = normalized.match(/[A-Za-z0-9+/=\r\n]{120,}/g) ?? [];
-  for (const match of base64Matches.slice(0, 8)) {
-    try {
-      parts.push(Buffer.from(match.replace(/\s+/g, ""), "base64").toString("utf8"));
-    } catch {
-      // Ignore invalid encoded chunks.
-    }
-  }
-  return parts.join("\n");
-}
-
-function extractLinks(text: string) {
-  const hrefLinks = [...text.matchAll(/href=["']([^"']+)["']/gi)].map((match) => match[1]);
-  const plainLinks = [...text.matchAll(/https?:\/\/[^\s"'<>\\)]+/gi)].map((match) => match[0]);
-  return [...new Set([...hrefLinks, ...plainLinks].map((link) => link.replace(/&amp;/g, "&").replace(/[.,;]+$/g, "")))];
-}
-
 function scoreVerificationLink(link: string, domain: string) {
   let score = 0;
   const lower = link.toLowerCase();
   if (domain && lower.includes(domain.toLowerCase())) score += 20;
-  if (/activate|activation|verify|verification|confirm|validate|email/.test(lower)) score += 40;
-  if (/ucp\.php.*mode=activate|account.*activate|confirm.*email/.test(lower)) score += 40;
-  if (/unsubscribe|privacy|terms|login|reset|password/.test(lower)) score -= 50;
+  if (/activate|activation|verify|verification|confirm|validate|email|registrierung/i.test(lower)) score += 40;
+  if (/ucp\.php.*mode=activate|account.*activate|confirm.*email/i.test(lower)) score += 40;
+  if (/unsubscribe|privacy|terms|login|reset|password/i.test(lower)) score -= 50;
   return score;
 }
 
-async function fetchRecentMessages(credentials: ImapCredentials) {
-  const socket = tls.connect({ host: credentials.host, port: credentials.port, servername: credentials.host });
-  const counter = { value: 0 };
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("IMAP greeting timeout.")), 12000);
-    socket.once("data", () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-    socket.once("error", reject);
-  });
+async function extractLinksFromEmail(message: imapSimple.Message): Promise<string[]> {
+  const allParts = message.parts.find((p) => p.which === "");
+  if (!allParts || !allParts.body) return [];
 
   try {
-    await sendCommand(socket, counter, `LOGIN ${quoteImap(credentials.email)} ${quoteImap(credentials.password)}`);
-    await sendCommand(socket, counter, "SELECT INBOX");
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const search = await sendCommand(socket, counter, `UID SEARCH SINCE ${formatImapDate(since)}`);
-    const uids = parseSearchUids(search).slice(-30).reverse();
-    const messages: string[] = [];
-    for (const uid of uids) {
-      const response = await sendCommand(socket, counter, `UID FETCH ${uid} BODY.PEEK[]`, 30000).catch(() => "");
-      if (response) messages.push(response);
-    }
-    await sendCommand(socket, counter, "LOGOUT").catch(() => "");
-    return messages;
-  } finally {
-    socket.end();
+    const parsed = await simpleParser(allParts.body);
+    const bodyText = parsed.text || "";
+    const bodyHtml = parsed.html || "";
+    const fullContent = bodyText + " " + bodyHtml;
+
+    const hrefLinks = [...fullContent.matchAll(/href=["']([^"']+)["']/gi)].map((match) => match[1]);
+    const plainLinks = [...fullContent.matchAll(/https?:\/\/[^\s"'<>\\)]+/gi)].map((match) => match[0]);
+
+    return [...new Set([...hrefLinks, ...plainLinks].map((link) => link.replace(/&amp;/g, "&").replace(/[.,;]+$/g, "")))];
+  } catch (error) {
+    console.error("Lỗi khi parse email body:", error);
+    return [];
   }
 }
 
-async function openVerificationLink(link: string) {
+async function fetchRecentMessagesFromImap(credentials: ImapCredentials, domain: string): Promise<string[]> {
+  const config = {
+    imap: {
+      user: credentials.email,
+      password: credentials.password,
+      host: credentials.host,
+      port: credentials.port,
+      tls: true,
+      authTimeout: 15000,
+      tlsOptions: { rejectUnauthorized: false },
+    },
+  };
+
+  let connection: imapSimple.ImapSimple;
+  try {
+    connection = await imapSimple.connect(config);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Đăng nhập IMAP thất bại: ${msg}`);
+  }
+
+  try {
+    const foldersToTry = [
+      "INBOX",
+      "Spam",
+      "Junk",
+      "[Gmail]/Spam",
+      "[Gmail]/Junk",
+      "[Gmail]/Thư rác",
+      "[Gmail]/All Mail",
+      "All Mail",
+    ];
+
+    const since = new Date();
+    since.setDate(since.getDate() - 14); // Tìm trong vòng 14 ngày qua
+
+    const allLinks: string[] = [];
+
+    for (const folder of foldersToTry) {
+      try {
+        await connection.openBox(folder);
+        const searchCriteria = ["ALL"];
+        const fetchOptions = {
+          bodies: ["HEADER", ""],
+          struct: true,
+        };
+
+        const results = await connection.search(searchCriteria, fetchOptions);
+        for (const msg of results) {
+          const headerPart = msg.parts.find((p) => p.which === "HEADER");
+          if (!headerPart || !headerPart.body) continue;
+
+          const parsedHeader = await simpleParser(headerPart.body);
+          const fromHeader = (parsedHeader.from?.text || "").toLowerCase();
+          const subject = (parsedHeader.subject || "").toLowerCase();
+          const date = parsedHeader.date || new Date();
+
+          const matchesContext =
+            date >= since &&
+            (fromHeader.includes(domain.toLowerCase()) ||
+              subject.includes("activation") ||
+              subject.includes("confirm") ||
+              subject.includes("registrierung") ||
+              subject.includes("activate") ||
+              subject.includes("xác minh") ||
+              subject.includes("kích hoạt") ||
+              subject.includes(domain.toLowerCase()));
+
+          if (matchesContext) {
+            const links = await extractLinksFromEmail(msg);
+            allLinks.push(...links);
+          }
+        }
+      } catch (err) {
+        // Bỏ qua lỗi nếu folder không tồn tại trên server
+      }
+    }
+
+    return [...new Set(allLinks)];
+  } finally {
+    try {
+      connection.end();
+    } catch {
+      // Bỏ qua lỗi khi kết thúc connection
+    }
+  }
+}
+
+async function openVerificationLink(link: string): Promise<string> {
   const browser = await chromium.launchPersistentContext(VERIFY_PROFILE_DIR, {
     headless: false,
     channel: "chromium",
@@ -162,9 +151,9 @@ async function openVerificationLink(link: string) {
     const page = await browser.newPage();
     await page.goto(link, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => undefined);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(4000);
     const text = await page.locator("body").innerText({ timeout: 5000 }).catch(() => "");
-    if (/activated|verified|confirmed|registration complete|account is now active|thank you|success/i.test(text)) {
+    if (/activated|verified|confirmed|registration complete|account is now active|thank you|success|kích hoạt|thành công/i.test(text)) {
       return "Mở link xác nhận thành công.";
     }
     return "Đã mở link xác nhận, cần kiểm tra lại nội dung trang.";
@@ -187,6 +176,7 @@ export async function verifyRegisteredAccountEmail(accountId: string): Promise<V
   }
 
   try {
+    // 1. Thử dùng Gmail API trước
     const gmailApiResult = await findGmailApiVerificationLink(account.email, account.domain);
     if (gmailApiResult.status === "found") {
       const note = await openVerificationLink(gmailApiResult.link);
@@ -204,21 +194,21 @@ export async function verifyRegisteredAccountEmail(accountId: string): Promise<V
       return { status: FAILED_STATUS, note };
     }
 
-    const messages = await fetchRecentMessages({
+    // 2. Thử dùng IMAP nếu Gmail API không tìm thấy hoặc thất bại
+    const links = await fetchRecentMessagesFromImap({
       email: emailResource.email,
       password: emailResource.password,
       host: emailResource.imapHost,
       port: Number(emailResource.imapPort) || 993,
-    });
-    const decoded = messages.map(decodeEmailBody);
-    const links = decoded.flatMap(extractLinks);
+    }, account.domain);
+
     const bestLink = links
       .map((link) => ({ link, score: scoreVerificationLink(link, account.domain) }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)[0]?.link;
 
     if (!bestLink) {
-      const note = "Đăng nhập IMAP được nhưng không tìm thấy link xác nhận trong email 7 ngày gần đây.";
+      const note = "Đăng nhập IMAP được nhưng không tìm thấy link xác nhận trong email 14 ngày gần đây.";
       await updateRegisteredAccountEmailVerification(account.id, { emailVerificationStatus: FAILED_STATUS, emailVerificationNote: note });
       return { status: FAILED_STATUS, note };
     }
