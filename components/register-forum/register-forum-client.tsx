@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Link2, MailCheck, Play, Plus, Trash2, X } from "lucide-react";
+import { Check, Link2, MailCheck, Play, Plus, SendHorizonal, Trash2, X } from "lucide-react";
 import { Button, Panel } from "@/components/ui";
 import { buildCrawlerResultsQueryParams, loadCrawlerUrlViewState } from "@/lib/utils/crawler-url-view-state";
 
@@ -83,6 +83,7 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
   const [copiedValue, setCopiedValue] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [verifyingAccountId, setVerifyingAccountId] = useState("");
+  const [postingAccountId, setPostingAccountId] = useState("");
   const [queueLoaded, setQueueLoaded] = useState(false);
   const [accounts, setAccounts] = useState<RegisteredAccount[]>([]);
   const [isPullingCrawler, setIsPullingCrawler] = useState(false);
@@ -369,6 +370,31 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
     }
   }
 
+  async function postBacklink(account: RegisteredAccount) {
+    setPostingAccountId(account.id);
+    setMessage(`🚀 Đang đăng backlink lên ${account.domain || account.url}...`);
+    try {
+      const response = await fetch("/api/forum-registration/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: account.url,
+          username: account.username,
+          password: account.password,
+          persona: { displayName: account.username, country: "US" },
+          isDirectLogin: true,
+        }),
+      });
+      const payload = (await response.json()) as { success?: boolean; postedUrl?: string; error?: string };
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Đăng bài thất bại.");
+      setMessage(`✅ Đăng backlink thành công! URL bài viết: ${payload.postedUrl}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không đăng được backlink.");
+    } finally {
+      setPostingAccountId("");
+    }
+  }
+
   return (
     <div className="mt-7 grid gap-4 xl:grid-cols-2">
       <Panel>
@@ -422,12 +448,22 @@ export function RegisterForumClient({ candidates }: { candidates: Candidate[] })
       <Panel className="xl:col-span-2">
         <h2 className="text-base font-semibold">Account đã đăng ký ({accounts.length})</h2>
         <p className="text-sm text-muted">Mỗi lần đăng ký thành công sẽ tạo một dòng riêng, kể cả cùng một forum.</p>
-        <AccountTable rows={accounts} copiedValue={copiedValue} verifyingAccountId={verifyingAccountId} onVerify={verifyAccountEmail} onDelete={deleteAccount} onCopy={(value) => {
-          if (!value || value === "-") return;
-          void navigator.clipboard.writeText(value);
-          setCopiedValue(value);
-          window.setTimeout(() => setCopiedValue((current) => (current === value ? "" : current)), 1200);
-        }} />
+        {message && <p className="mt-2 text-sm text-primary">{message}</p>}
+        <AccountTable
+          rows={accounts}
+          copiedValue={copiedValue}
+          verifyingAccountId={verifyingAccountId}
+          postingAccountId={postingAccountId}
+          onVerify={verifyAccountEmail}
+          onDelete={deleteAccount}
+          onPost={postBacklink}
+          onCopy={(value) => {
+            if (!value || value === "-") return;
+            void navigator.clipboard.writeText(value);
+            setCopiedValue(value);
+            window.setTimeout(() => setCopiedValue((current) => (current === value ? "" : current)), 1200);
+          }}
+        />
       </Panel>
     </div>
   );
@@ -467,24 +503,28 @@ function AccountTable({
   rows,
   copiedValue,
   verifyingAccountId,
+  postingAccountId,
   onCopy,
   onVerify,
   onDelete,
+  onPost,
 }: {
   rows: RegisteredAccount[];
   copiedValue: string;
   verifyingAccountId: string;
+  postingAccountId: string;
   onCopy: (value: string) => void;
   onVerify: (row: RegisteredAccount) => void;
   onDelete: (row: RegisteredAccount) => void;
+  onPost: (row: RegisteredAccount) => void;
 }) {
   if (rows.length === 0) {
-    return <EmptyTable headers={["Website", "Email", "Username", "Password", "Created", "Action"]} message="Chưa có account đăng ký thành công." />;
+    return <EmptyTable headers={["Website", "Email", "Username", "Password", "Email verify", "Created", "Action"]} message="Chưa có account đăng ký thành công." />;
   }
 
   return (
     <div className="mt-6 overflow-hidden rounded-md border border-border">
-      <div className="grid grid-cols-[minmax(0,1fr)_210px_170px_170px_180px_145px_96px] border-b border-border px-3 py-3 text-sm font-semibold text-muted">
+      <div className="grid grid-cols-[minmax(0,1fr)_210px_150px_150px_160px_130px_132px] border-b border-border px-3 py-3 text-sm font-semibold text-muted">
         <span>Website</span>
         <span>Email</span>
         <span>Username</span>
@@ -495,7 +535,7 @@ function AccountTable({
       </div>
       <div className="max-h-[360px] divide-y divide-border overflow-auto">
         {rows.map((row) => (
-          <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_210px_170px_170px_180px_145px_96px] items-center gap-3 px-3 py-3 text-sm">
+          <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_210px_150px_150px_160px_130px_132px] items-center gap-3 px-3 py-3 text-sm">
             <div className="min-w-0">
               <a className="block truncate font-medium text-white underline-offset-2 hover:underline" href={row.url} target="_blank" rel="noreferrer" title={row.url}>
                 {row.domain || row.url}
@@ -512,7 +552,20 @@ function AccountTable({
               {row.emailVerificationNote ? <p className="mt-0.5 truncate text-xs text-muted" title={row.emailVerificationNote}>{row.emailVerificationNote}</p> : null}
             </div>
             <span className="truncate text-muted" title={row.createdAt}>{formatDate(row.createdAt)}</span>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
+              {/* Post Backlink */}
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Đăng backlink lên forum này"
+                disabled={Boolean(postingAccountId)}
+                onClick={() => onPost(row)}
+              >
+                {postingAccountId === row.id
+                  ? <SendHorizonal size={14} className="animate-pulse" />
+                  : <SendHorizonal size={14} />}
+              </button>
+              {/* Verify Email */}
               <button
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-[#0b111b] text-primary hover:bg-[#111b29] disabled:cursor-not-allowed disabled:opacity-50"
@@ -520,15 +573,16 @@ function AccountTable({
                 disabled={Boolean(verifyingAccountId)}
                 onClick={() => onVerify(row)}
               >
-                <MailCheck size={15} className={verifyingAccountId === row.id ? "animate-pulse" : ""} />
+                <MailCheck size={14} className={verifyingAccountId === row.id ? "animate-pulse" : ""} />
               </button>
+              {/* Delete */}
               <button
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-[#0b111b] text-red-300 hover:bg-[#111b29]"
-                title="Delete account. Email availability follows Email Pool."
+                title="Xóa account"
                 onClick={() => onDelete(row)}
               >
-                <Trash2 size={15} />
+                <Trash2 size={14} />
               </button>
             </div>
           </div>

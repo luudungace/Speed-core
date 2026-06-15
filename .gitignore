@@ -42,3 +42,21 @@ next-env.d.ts
 
 # npm cache
 .npm-cache/
+
+# Playwright profiles
+.playwright-*-profile/
+.playwright-debug-profile/
+.playwright-email-verify-profile/
+.playwright-forum-profile/
+
+# Local data / DBs
+.data/
+*.db
+
+# Screenshots
+*.png
+
+# Temporary / Scratch scripts
+get-headers-scratch.js
+scripts/find_region_migrate.js
+

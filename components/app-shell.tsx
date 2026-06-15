@@ -10,6 +10,8 @@ import {
   LogOut,
   PanelsTopLeft,
   Search,
+  ShieldCheck,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/login/logout-action";
@@ -17,9 +19,11 @@ import { SpeedCoreLogo } from "@/components/speed-core-logo";
 
 const navItems = [
   { href: "/", label: "Tổng quan", icon: PanelsTopLeft },
-  { href: "/crawler-url", label: "Crawler URL", icon: Search },
+  { href: "/crawler-url", label: "Cào Dork & Crawl URL", icon: Search },
+  { href: "/backlink-opportunities", label: "Cơ hội Backlink", icon: Target },
   { href: "/resources", label: "Tài nguyên", icon: Database },
   { href: "/register-forum", label: "Đăng ký diễn đàn", icon: ListChecks },
+  { href: "/registered-forums", label: "Diễn đàn đã đăng ký", icon: ShieldCheck },
   { href: "/posted-backlinks", label: "Backlink đã đăng", icon: FileText },
 ];
 
