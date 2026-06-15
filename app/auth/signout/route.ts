@@ -1,8 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
+import { getPublicOriginFromHeaders } from "@/lib/http/public-origin";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
-  let response = NextResponse.redirect(new URL("/", request.url));
+  const origin = getPublicOriginFromHeaders(request.headers, request.url);
+  const redirectUrl = new URL("/", origin);
+  let response = NextResponse.redirect(redirectUrl);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.redirect(new URL("/", request.url));
+          response = NextResponse.redirect(redirectUrl);
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },

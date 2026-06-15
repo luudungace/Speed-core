@@ -2,23 +2,33 @@
 
 import { ArrowRight, Loader2, Lock, Mail, Plus } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { loginAction, signUpAction, type AuthState } from "./actions";
+import { signUpAction } from "./actions";
 
 type Tab = "login" | "register";
 
+function translateUrlError(error?: string): string | undefined {
+  switch (error) {
+    case "email_verification_failed":
+      return "Xác thực email thất bại. Vui lòng thử lại.";
+    case "invalid_credentials":
+      return "Email hoặc mật khẩu không đúng.";
+    case "email_not_confirmed":
+      return "Email chưa được xác thực. Vui lòng kiểm tra hộp thư.";
+    case "auth_failed":
+      return "Đăng nhập thất bại. Vui lòng thử lại.";
+    default:
+      return undefined;
+  }
+}
+
 export function LoginForm({ error }: { error?: string }) {
-  const urlError =
-    error === "email_verification_failed"
-      ? "Xác thực email thất bại. Vui lòng thử lại."
-      : undefined;
+  const urlError = translateUrlError(error);
 
   const [tab, setTab] = useState<Tab>("login");
-  const [loginState, loginFormAction, loginPending] = useActionState(loginAction, null);
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
   const [signUpState, signUpFormAction, signUpPending] = useActionState(signUpAction, null);
 
-  const state: AuthState = tab === "login" ? loginState : signUpState;
-  const isPending = tab === "login" ? loginPending : signUpPending;
-  const formAction = tab === "login" ? loginFormAction : signUpFormAction;
+  const isPending = tab === "login" ? loginSubmitting : signUpPending;
 
   const [urlMessage, setUrlMessage] = useState<{ type: "error"; text: string } | null>(
     urlError ? { type: "error", text: urlError } : null,
@@ -33,13 +43,15 @@ export function LoginForm({ error }: { error?: string }) {
   const switchTab = (t: Tab) => {
     setTab(t);
     setUrlMessage(null);
+    setLoginSubmitting(false);
   };
 
-  const displayMessage = state?.error
-    ? { type: "error" as const, text: translateError(state.error) }
-    : state?.success
-      ? { type: "success" as const, text: state.success }
-      : urlMessage;
+  const displayMessage =
+    tab === "register" && signUpState?.error
+      ? { type: "error" as const, text: translateError(signUpState.error) }
+      : tab === "register" && signUpState?.success
+        ? { type: "success" as const, text: signUpState.success }
+        : urlMessage;
 
   return (
     <div className="login-card relative w-full max-w-[640px] rounded-[20px] border border-[#2a3a55] bg-gradient-to-b from-panel/85 to-[#0a0f1c]/85 p-8 shadow-[0_30px_80px_-20px_rgba(0,0,0,.6)] backdrop-blur-[18px]">
@@ -84,33 +96,38 @@ export function LoginForm({ error }: { error?: string }) {
         </button>
       </div>
 
-      <form key={tab} action={formAction} className="login-panel-in space-y-3.5">
-        <Field label="Email" hint={tab === "register" ? "required" : undefined}>
-          <Mail className="login-input-icon" size={16} strokeWidth={2} />
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="ban@congty.com"
-            className="login-input"
-          />
-        </Field>
+      {tab === "login" ? (
+        <form
+          action="/auth/login"
+          method="post"
+          className="login-panel-in space-y-3.5"
+          onSubmit={() => setLoginSubmitting(true)}
+        >
+          <Field label="Email">
+            <Mail className="login-input-icon" size={16} strokeWidth={2} />
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="ban@congty.com"
+              className="login-input"
+            />
+          </Field>
 
-        <Field label="Mật khẩu" hint={tab === "register" ? "≥ 6 ký tự" : undefined}>
-          <Lock className="login-input-icon" size={16} strokeWidth={2} />
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete={tab === "login" ? "current-password" : "new-password"}
-            placeholder="••••••••"
-            minLength={6}
-            className="login-input"
-          />
-        </Field>
+          <Field label="Mật khẩu">
+            <Lock className="login-input-icon" size={16} strokeWidth={2} />
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              minLength={6}
+              className="login-input"
+            />
+          </Field>
 
-        {tab === "login" && (
           <div className="flex items-center justify-between text-xs text-muted">
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" defaultChecked className="accent-primary" />
@@ -118,29 +135,68 @@ export function LoginForm({ error }: { error?: string }) {
             </label>
             <span className="font-mono text-[10px] uppercase tracking-wide">2FA · OPTIONAL</span>
           </div>
-        )}
 
-        {tab === "register" && (
+          {displayMessage && (
+            <div
+              className={`rounded-lg px-3 py-2.5 text-sm ${
+                displayMessage.type === "error"
+                  ? "border border-red-900/50 bg-red-950/40 text-red-300"
+                  : "border border-primary/30 bg-primary/10 text-emerald-200"
+              }`}
+            >
+              {displayMessage.text}
+            </div>
+          )}
+
+          <SubmitButton isPending={isPending} tab="login" />
+        </form>
+      ) : (
+        <form key="register" action={signUpFormAction} className="login-panel-in space-y-3.5">
+          <Field label="Email" hint="required">
+            <Mail className="login-input-icon" size={16} strokeWidth={2} />
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="ban@congty.com"
+              className="login-input"
+            />
+          </Field>
+
+          <Field label="Mật khẩu" hint="≥ 6 ký tự">
+            <Lock className="login-input-icon" size={16} strokeWidth={2} />
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder="••••••••"
+              minLength={6}
+              className="login-input"
+            />
+          </Field>
+
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
             <input type="checkbox" required className="accent-primary" />
             Tôi đồng ý điều khoản nội bộ
           </label>
-        )}
 
-        {displayMessage && (
-          <div
-            className={`rounded-lg px-3 py-2.5 text-sm ${
-              displayMessage.type === "error"
-                ? "border border-red-900/50 bg-red-950/40 text-red-300"
-                : "border border-primary/30 bg-primary/10 text-emerald-200"
-            }`}
-          >
-            {displayMessage.text}
-          </div>
-        )}
+          {displayMessage && (
+            <div
+              className={`rounded-lg px-3 py-2.5 text-sm ${
+                displayMessage.type === "error"
+                  ? "border border-red-900/50 bg-red-950/40 text-red-300"
+                  : "border border-primary/30 bg-primary/10 text-emerald-200"
+              }`}
+            >
+              {displayMessage.text}
+            </div>
+          )}
 
-        <SubmitButton isPending={isPending} tab={tab} />
-      </form>
+          <SubmitButton isPending={isPending} tab="register" />
+        </form>
+      )}
 
       <p className="mt-4 text-center text-xs text-muted">
         {tab === "login" ? (
