@@ -65,12 +65,13 @@ export type DashboardStats = {
   };
 };
 
-type DbQuery = ReturnType<ReturnType<typeof createSupabaseAdmin>["from"]>;
+type CountQuery = ReturnType<ReturnType<ReturnType<typeof createSupabaseAdmin>["from"]>["select"]>;
 
-async function countWhere(table: string, apply?: (query: DbQuery) => DbQuery) {
+async function countWhere(table: string, apply?: (query: CountQuery) => CountQuery) {
   const db = createSupabaseAdmin();
-  let query = db.from(table).select("*", { count: "exact", head: true });
-  if (apply) query = apply(query);
+  const query = apply
+    ? apply(db.from(table).select("*", { count: "exact", head: true }))
+    : db.from(table).select("*", { count: "exact", head: true });
   const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
