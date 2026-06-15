@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getPublicOriginFromHeaders } from "@/lib/http/public-origin";
 import { buildGmailOAuthUrl } from "@/lib/services/gmail-api-service";
 
 export const runtime = "nodejs";
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
     if (!body.email || !body.email.includes("@")) {
       return NextResponse.json({ error: "Email không hợp lệ." }, { status: 422 });
     }
-    const origin = new URL(request.url).origin;
+    const origin = getPublicOriginFromHeaders(request.headers, request.url);
     const authUrl = await buildGmailOAuthUrl(body.email, origin);
     return NextResponse.json({ authUrl });
   } catch (error) {

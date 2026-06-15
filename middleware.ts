@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { getPublicOriginFromHeaders } from "@/lib/http/public-origin";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -32,20 +33,24 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  const publicOrigin = getPublicOriginFromHeaders(request.headers, request.url);
 
   const isPublicPath =
-    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/posted-backlinks");
 
   if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL("/", request.url));
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.redirect(new URL("/login", publicOrigin));
   }
 
   if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", publicOrigin));
   }
 
   return response;

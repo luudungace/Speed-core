@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
+import { getPublicOriginFromHeaders } from "@/lib/http/public-origin";
 import { exchangeGmailOAuthCode, parseGmailOAuthState } from "@/lib/services/gmail-api-service";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const origin = getPublicOriginFromHeaders(request.headers, request.url);
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
-  const redirect = new URL("/resources", url.origin);
+  const redirect = new URL("/resources", origin);
 
   if (error) {
     redirect.searchParams.set("gmail_oauth", "error");
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    await exchangeGmailOAuthCode({ code, email, origin: url.origin });
+    await exchangeGmailOAuthCode({ code, email, origin });
     redirect.searchParams.set("gmail_oauth", "connected");
     redirect.searchParams.set("email", email);
     return NextResponse.redirect(redirect);
