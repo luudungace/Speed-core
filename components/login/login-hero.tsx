@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { SpeedCoreLogo } from "@/components/speed-core-logo";
+import { cn } from "@/lib/utils";
 
 const stats = [
   { value: "12,480", unit: "+", label: "URL Crawled" },
@@ -6,14 +9,29 @@ const stats = [
   { value: "3,210", unit: "+", label: "Backlinks Live" },
 ];
 
-export function LoginHero() {
-  return (
-    <section className="relative z-[2] flex flex-col justify-between border-b border-border px-6 py-8 lg:border-b-0 lg:border-r lg:px-24 lg:py-12">
-      <header>
-        <SpeedCoreLogo size="md" subtitle="v1.0 · seo ops platform" />
-      </header>
+type LoginHeroProps = {
+  variant?: "sidebar" | "landing";
+};
 
-      <div className="my-10 max-w-[600px] lg:my-auto">
+export function LoginHero({ variant = "sidebar" }: LoginHeroProps) {
+  const isLanding = variant === "landing";
+
+  return (
+    <section
+      className={cn(
+        "relative z-[2] flex flex-col justify-between",
+        isLanding
+          ? "mx-auto w-full max-w-4xl py-4 lg:py-8"
+          : "border-b border-border px-6 py-8 lg:border-b-0 lg:border-r lg:px-24 lg:py-12",
+      )}
+    >
+      {!isLanding && (
+        <header>
+          <SpeedCoreLogo size="md" subtitle="v1.0 · seo ops platform" />
+        </header>
+      )}
+
+      <div className={cn("max-w-[600px]", isLanding ? "my-6 lg:my-8" : "my-10 lg:my-auto")}>
         <span className="login-kicker mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.08] px-3 py-1.5 font-mono text-[11px] text-primary">
           SEO INFRASTRUCTURE · LIVE
         </span>
@@ -45,6 +63,16 @@ export function LoginHero() {
             </div>
           ))}
         </div>
+
+        {isLanding && (
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            <Link href="/login" className="login-btn inline-flex w-auto px-6 py-3">
+              Vào hệ thống
+              <ArrowRight size={16} strokeWidth={2.2} />
+            </Link>
+            <p className="text-sm text-muted">Dành cho nhân viên SEO và Team Leader nội bộ.</p>
+          </div>
+        )}
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-muted">

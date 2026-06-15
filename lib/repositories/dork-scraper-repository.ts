@@ -1,3 +1,4 @@
+import { discoveredForumsHasPublishDateColumn } from "@/lib/db/discovered-forums-schema";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import type { DorkProjectRow, DorkJobRow, DiscoveredForumRow } from "../types/dork-scraper";
 
@@ -134,19 +135,24 @@ export class DorkScraperRepository {
     score?: number;
     publish_date?: string | null;
   }): Promise<void> {
+    const payload: Record<string, unknown> = {
+      project_id: input.project_id,
+      domain: input.domain,
+      source_url: input.source_url,
+      title: input.title || null,
+      cms_type: input.cms_type || "Unknown",
+      score: input.score || 0,
+      status: "discovered",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (await discoveredForumsHasPublishDateColumn(this.db)) {
+      payload.publish_date = input.publish_date || null;
+    }
+
     const { error } = await this.db
       .from("discovered_forums")
-      .upsert({
-        project_id: input.project_id,
-        domain: input.domain,
-        source_url: input.source_url,
-        title: input.title || null,
-        cms_type: input.cms_type || "Unknown",
-        score: input.score || 0,
-        status: "discovered",
-        publish_date: input.publish_date || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "project_id,domain" });
+      .upsert(payload, { onConflict: "project_id,domain" });
 
     if (error) throw error;
   }
