@@ -1,10 +1,8 @@
-import { createServerClient } from "@supabase/ssr";
-import { getPublicOriginFromHeaders } from "@/lib/http/public-origin";
-import { NextResponse, type NextRequest } from "next/server";
+import { createSupabaseServer } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
-  const origin = getPublicOriginFromHeaders(request.headers, request.url);
-  const { searchParams } = new URL(request.url);
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const nextParam = searchParams.get("next");
   const next = nextParam?.startsWith("/") ? nextParam : "/";
@@ -16,32 +14,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  let response = NextResponse.redirect(new URL(next, origin));
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.redirect(new URL(next, origin));
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
+  const supabase = await createSupabaseServer();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return response;
+  return NextResponse.redirect(`${origin}${next}`);
 }

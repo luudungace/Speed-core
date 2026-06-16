@@ -2,7 +2,7 @@
 
 import { ArrowRight, Loader2, Lock, Mail, Plus } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { signUpAction } from "./actions";
+import { signInAction, signUpAction } from "./actions";
 
 type Tab = "login" | "register";
 
@@ -25,10 +25,10 @@ export function LoginForm({ error }: { error?: string }) {
   const urlError = translateUrlError(error);
 
   const [tab, setTab] = useState<Tab>("login");
-  const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [signInState, signInFormAction, signInPending] = useActionState(signInAction, null);
   const [signUpState, signUpFormAction, signUpPending] = useActionState(signUpAction, null);
 
-  const isPending = tab === "login" ? loginSubmitting : signUpPending;
+  const isPending = tab === "login" ? signInPending : signUpPending;
 
   const [urlMessage, setUrlMessage] = useState<{ type: "error"; text: string } | null>(
     urlError ? { type: "error", text: urlError } : null,
@@ -43,11 +43,12 @@ export function LoginForm({ error }: { error?: string }) {
   const switchTab = (t: Tab) => {
     setTab(t);
     setUrlMessage(null);
-    setLoginSubmitting(false);
   };
 
   const displayMessage =
-    tab === "register" && signUpState?.error
+    tab === "login" && signInState?.error
+      ? { type: "error" as const, text: signInState.error }
+      : tab === "register" && signUpState?.error
       ? { type: "error" as const, text: translateError(signUpState.error) }
       : tab === "register" && signUpState?.success
         ? { type: "success" as const, text: signUpState.success }
@@ -97,12 +98,7 @@ export function LoginForm({ error }: { error?: string }) {
       </div>
 
       {tab === "login" ? (
-        <form
-          action="/auth/login"
-          method="post"
-          className="login-panel-in space-y-3.5"
-          onSubmit={() => setLoginSubmitting(true)}
-        >
+        <form action={signInFormAction} className="login-panel-in space-y-3.5">
           <Field label="Email">
             <Mail className="login-input-icon" size={16} strokeWidth={2} />
             <input
