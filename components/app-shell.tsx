@@ -13,8 +13,9 @@ import {
   ShieldCheck,
   Target,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { signOutAction } from "@/app/login/actions";
 import { SpeedCoreLogo } from "@/components/speed-core-logo";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Tổng quan", icon: PanelsTopLeft },
@@ -60,13 +61,15 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 
         {/* Logout */}
         <div className="absolute bottom-0 left-0 right-0 border-t border-border p-2">
-          <Link
-            href="/auth/signout"
-            className="flex w-full min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[#6b7a8d] transition hover:bg-[#101823] hover:text-white"
-          >
-            <LogOut size={17} />
-            <span>Đăng xuất</span>
-          </Link>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="flex w-full min-h-8 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[#6b7a8d] transition hover:bg-[#101823] hover:text-white"
+            >
+              <LogOut size={17} />
+              <span>Đăng xuất</span>
+            </button>
+          </form>
         </div>
       </aside>
       <main className="min-h-screen min-w-0 pl-[250px]">
